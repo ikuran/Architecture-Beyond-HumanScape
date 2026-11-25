@@ -1,0 +1,1089 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hand Body Space</title>
+<style>
+:root{--m:#ff2d95;--ink:#ececec;--mut:#8a8a8a;--line:#2b2b2b}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#000;color:var(--ink);font-family:Arial,Helvetica,sans-serif}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:grab;touch-action:none}
+#c.drag{cursor:grabbing}
+.top{position:fixed;left:20px;top:16px;pointer-events:none;border-top:1px solid #fff;padding-top:9px;max-width:560px}
+.kick{font:10px/1.2 monospace;letter-spacing:.18em;color:var(--m)}
+.h{font-size:clamp(20px,3.2vw,34px);line-height:.98;font-weight:700;letter-spacing:-.04em;margin:7px 0 0}
+.sub{font:10px/1.7 monospace;color:var(--mut);margin-top:8px;letter-spacing:.03em}
+#panel{position:fixed;right:16px;top:16px;width:316px;max-height:calc(100% - 32px);overflow:auto;background:rgba(0,0,0,.76);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border-top:3px solid var(--m);padding:12px 14px 14px}
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:0;margin:-2px 0 12px;border:1px solid #444}
+.tab{min-height:40px;background:transparent;border:0;color:#999;font:10.5px/1.25 monospace;letter-spacing:.06em;cursor:pointer;padding:4px 6px}
+.tab+.tab{border-left:1px solid #444}
+.tab.on{background:rgba(255,45,149,.18);color:#fff;box-shadow:inset 0 -2px 0 var(--m)}
+.tab:focus-visible{outline:1px solid var(--m)}
+.row{display:flex;justify-content:space-between;align-items:center}
+.num{font:10px monospace;color:var(--m);letter-spacing:.15em}
+#fold{background:none;border:1px solid #444;color:#aaa;width:28px;height:28px;font:12px monospace;cursor:pointer}
+.title{font-size:22px;font-weight:700;letter-spacing:-.03em;margin:6px 0 7px}
+.desc{font-size:12.5px;line-height:1.55;color:#a9a9a9}
+.formula{font:10.5px/1.7 monospace;margin-top:10px;padding:8px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);white-space:pre-line;color:#ddd}
+.lab{font:9.5px monospace;color:#777;letter-spacing:.14em;margin-top:14px;padding-top:8px;border-top:1px solid var(--line)}
+.ctrls{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.btn{min-height:34px;background:transparent;border:1px solid #555;color:#bbb;padding:0 10px;font:10.5px monospace;cursor:pointer;letter-spacing:.04em}
+.btn:hover,.btn:focus-visible{border-color:var(--m);color:var(--m);outline:none}
+.btn.on{border-color:var(--m);color:#fff;background:rgba(255,45,149,.16)}
+.btn.big{min-height:44px;width:100%;font-size:12px;border-color:var(--m);color:#fff}
+.moves{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.mv{min-height:58px;background:transparent;border:1px solid #555;color:#ddd;font:10.5px/1.3 monospace;cursor:pointer;padding:6px 4px;text-align:center}
+.mv svg{display:block;margin:0 auto 4px;width:26px;height:26px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.mv:hover,.mv:focus-visible,.mv.on{border-color:var(--m);color:#fff;background:rgba(255,45,149,.14);outline:none}
+.mv.on svg{stroke:var(--m)}
+.camstat{font:9.5px/1.5 monospace;color:#999;margin-top:6px;min-height:14px}
+.guide{display:grid;gap:5px;margin-top:8px}
+.gi{display:grid;grid-template-columns:96px 1fr;gap:8px;font:10px/1.4 monospace;color:#888;padding:5px 0;border-top:1px solid #1d1d1d}
+.gi b{color:#eee;font-weight:400}
+.gi.on{color:#fff}.gi.on b{color:var(--m)}
+.sl{display:grid;gap:9px;margin-top:8px}
+.sl label{display:grid;gap:4px;font:9.5px monospace;color:#888;letter-spacing:.06em}
+.sl label span{display:flex;justify-content:space-between}
+.sl output{color:#ddd}
+input[type=range]{width:100%;accent-color:var(--m);height:16px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;margin-top:8px;font:10px monospace;color:#888}
+.stats em{font-style:normal;color:#eee;float:right}
+#panel.folded .fold-hide{display:none}
+.hide{display:none!important}
+#camwrap{position:fixed;left:20px;bottom:44px;width:240px;aspect-ratio:4/3;display:none;border:1px solid #333;background:#050505;overflow:hidden}
+#camwrap video,#camwrap canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+#camwrap video{opacity:.4;filter:grayscale(1) contrast(1.2)}
+.camlab{position:absolute;left:6px;top:5px;font:9px monospace;color:#aaa;letter-spacing:.12em;z-index:2}
+#toast{position:fixed;left:50%;top:18px;transform:translateX(-50%);font:11px monospace;letter-spacing:.12em;color:#fff;background:rgba(255,45,149,.2);border:1px solid var(--m);padding:8px 12px;opacity:0;transition:opacity .25s;pointer-events:none}
+.foot{position:fixed;left:20px;right:352px;bottom:12px;font:10px monospace;color:#777;letter-spacing:.12em;pointer-events:none;display:flex;justify-content:space-between;border-top:1px solid #222;padding-top:7px}
+.foot b{color:var(--m);font-weight:400}
+@media(max-width:760px){
+ #panel{left:10px;right:10px;top:auto;bottom:10px;width:auto;max-height:52vh}
+ .top{left:12px;right:12px;top:10px}.sub,.foot{display:none}
+ #camwrap{left:auto;right:10px;top:10px;bottom:auto;width:130px}
+}
+
+/* WebXR / 3D walk overlay; source's 2D controls stay available. */
+#xrCanvas{display:none;position:fixed;inset:0;z-index:2;width:100%;height:100%;touch-action:none;cursor:grab}
+#xrDock{position:fixed;left:20px;bottom:38px;z-index:30;display:flex;flex-wrap:wrap;align-items:center;gap:5px;max-width:calc(100vw - 365px);padding:9px 10px;background:rgba(5,3,8,.87);border:1px solid rgba(255,74,168,.55);backdrop-filter:blur(8px)}
+#xrDock button{font:10px/1.25 monospace;letter-spacing:.04em;background:#1a101a;border:1px solid #79516b;color:#fff;padding:9px 10px;cursor:pointer;white-space:nowrap;min-height:34px}
+#xrDock button.on,#xrDock button:hover{border-color:#ff4aa8;background:#421c36}
+#xrDock #xrEnter{background:#e4007c;border-color:#ff78bf;color:#fff;font-weight:800}
+#xrStatus{font:10px/1.35 monospace;color:#ddd;flex-basis:100%}
+#panel,.top,#camwrap,#toast,.foot{z-index:10}
+body.xr-3d #c{pointer-events:none}
+@media(max-width:760px){#xrDock{left:8px;right:8px;bottom:auto;top:8px;max-width:none;gap:3px;padding:6px}#xrDock button{padding:7px 6px;font-size:9px}#xrStatus{font-size:9px}body .top{top:110px}#panel{z-index:9}}
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="Dark room of light particles. Hands build a tensile membrane; a small figure's movements shape a space of floating particles."></canvas>
+
+
+<canvas id="xrCanvas" aria-label="Three-dimensional walkthrough and Quest WebXR view"></canvas>
+<div id="xrDock" aria-label="WebXR controls">
+ <button id="xrWalk" type="button">3D WALK</button>
+ <button id="xrEnter" type="button">ENTER VR</button>
+ <button id="xrHuman" type="button" class="on">HUMAN 1:1</button>
+ <button id="xrModel" type="button">MODEL 1:70</button>
+ <button id="xrReset" type="button">RESET VIEW</button>
+ <span id="xrStatus" aria-live="polite">3D demo is loading…</span>
+</div>
+
+<div class="top">
+ <div class="kick" id="kick">HANDS / LIGHT / TENSION / SYS_05</div>
+ <div class="h" id="headline">BUILD IT<br>WITH YOUR HANDS.</div>
+ <div class="sub" id="sub">PINCH TO PLACE &amp; MOVE POINTS · FINGERTIPS PULL LIGHT · FIST GATHERS, OPEN RELEASES<br>NO CAMERA: DRAG POINTS · DOUBLE-CLICK TO ADD / REMOVE · DRAG SPACE TO ORBIT</div>
+</div>
+
+<div id="toast"></div>
+
+<aside id="panel" aria-live="polite">
+ <div class="tabs" role="tablist">
+  <button class="tab on" id="tabT" type="button" role="tab">HANDS<br>→ TENSILE</button>
+  <button class="tab" id="tabB" type="button" role="tab">BODY<br>→ SPACE</button>
+ </div>
+ <div class="row"><div class="num" id="num">00 / CAMERA OFF</div><button id="fold" type="button" aria-label="Fold panel">–</button></div>
+ <div class="title" id="title">Your Tensile System</div>
+ <div class="fold-hide">
+  <div class="desc" id="desc"></div>
+  <div class="formula hide" id="formula"></div>
+
+  <!-- BODY MODE -->
+  <div id="bodyUI" class="hide">
+   <div class="lab">MOVEMENT</div>
+   <div class="moves" id="moves">
+    <button class="mv on" data-m="STAND" type="button"><svg viewBox="0 0 24 24"><circle cx="12" cy="4" r="2"/><path d="M12 6.5v7M8 9.5l4-1.5 4 1.5M12 13.5l-2.5 8M12 13.5l2.5 8"/></svg>STAND</button>
+    <button class="mv" data-m="WALK" type="button"><svg viewBox="0 0 24 24"><circle cx="13" cy="4" r="2"/><path d="M12.5 6.5l-1 7M8 11l4-3 3 3M11.5 13.5l-3 8M11.5 13.5l3.5 3 1 5"/></svg>WALK</button>
+    <button class="mv" data-m="RUN" type="button"><svg viewBox="0 0 24 24"><circle cx="15" cy="3.5" r="2"/><path d="M14 6l-3 6.5M7 9l4-3 4 1 2 3M11 12.5l-5 3M11 12.5l4 3-1 6"/></svg>RUN</button>
+    <button class="mv" data-m="SIT" type="button"><svg viewBox="0 0 24 24"><circle cx="9" cy="3.5" r="2"/><path d="M9 6v7h6v8M9 9l4 3M5 21v-8h4"/></svg>SIT</button>
+    <button class="mv" data-m="HUG" type="button"><svg viewBox="0 0 24 24"><circle cx="8" cy="4" r="2"/><circle cx="16" cy="4" r="2"/><path d="M8 6.5v7M16 6.5v7M8 9l7 1M16 9l-7 1M8 13.5l-1 8M16 13.5l1 8"/></svg>HUG</button>
+    <button class="mv" data-m="LIE" type="button"><svg viewBox="0 0 24 24"><circle cx="4" cy="15" r="2"/><path d="M6.5 16h13M10 16l2-3M14 16l3 3M3 19.5h18"/></svg>LIE DOWN</button>
+   </div>
+   <div class="ctrls"><button class="btn" id="tCycle" type="button">AUTO SEQUENCE</button></div>
+   <div class="lab">SPACE</div>
+   <div class="sl">
+    <label><span>FIELD RADIUS <output id="oZone">1.0×</output></span><input id="sZone" type="range" min="0.6" max="1.8" step="0.05" value="1"></label>
+    <label><span>DRIFT SPEED <output id="oDrift">1.0×</output></span><input id="sDrift" type="range" min="0" max="3" step="0.1" value="1"></label>
+    <label><span>FLOATING DUST <output id="oDust">12%</output></span><input id="sDust" type="range" min="0" max="40" step="2" value="12"></label>
+   </div>
+   <div class="stats">
+    <span>SPACE <em id="bsT">—</em></span><span>HEIGHT <em id="bsH">0 m</em></span>
+    <span>FOOTPRINT <em id="bsF">0 m²</em></span><span>SPEED <em id="bsV">0 m/s</em></span>
+   </div>
+  </div>
+
+  <!-- COMMON: CAMERA -->
+  <div class="lab">CAMERA / YOUR HANDS</div>
+  <div class="ctrls"><button class="btn big" id="camBtn" type="button">● START CAMERA</button></div>
+  <div class="camstat" id="camstat">Open this file in Chrome or Edge and allow the camera when asked.</div>
+
+  <!-- TENSILE MODE -->
+  <div id="tenUI">
+   <div class="lab">HAND VOCABULARY</div>
+   <div class="guide" id="guide">
+    <div class="gi" data-k="open"><b>OPEN HAND</b><span>fingertips pull the light particles off the membrane</span></div>
+    <div class="gi" data-k="fist"><b>FIST → OPEN</b><span>gather light into your hand · open to release it (white hole)</span></div>
+    <div class="gi" data-k="place"><b>PINCH · HOLD</b><span>in empty space, hold until the ring closes: place a new point</span></div>
+    <div class="gi" data-k="grab"><b>PINCH A POINT</b><span>grab and move it · raise = mast · lower = ground anchor</span></div>
+    <div class="gi" data-k="del"><b>HOLD AT EDGE</b><span>keep a grabbed point at the frame edge until it turns red · release = delete</span></div>
+    <div class="gi" data-k="center"><b>TWO-HAND PINCH</b><span>height = centre up (cone) / down (funnel) · spread = ring size (oculus) · at rim height = remove</span></div>
+    <div class="gi" data-k="reset"><b>TWO FISTS · HOLD</b><span>collapse to a singularity and start again</span></div>
+   </div>
+   <div class="lab">START FROM</div>
+   <div class="ctrls" id="seeds">
+    <button class="btn" data-s="CONE" type="button">CONE</button><button class="btn" data-s="HYPAR" type="button">HYPAR</button><button class="btn" data-s="OCULUS" type="button">OCULUS</button>
+    <button class="btn" data-s="FUNNEL" type="button">FUNNEL</button><button class="btn" data-s="WAVE" type="button">WAVE</button><button class="btn" data-s="SAIL" type="button">SAIL</button>
+   </div>
+   <div class="lab">CENTRE</div>
+   <div class="ctrls" id="cmodes"><button class="btn" data-c="none" type="button">FREE</button><button class="btn" data-c="peak" type="button">PEAK</button><button class="btn" data-c="ring" type="button">RING</button><button class="btn" data-c="funnel" type="button">LOW POINT</button></div>
+  </div>
+
+  <div class="lab">HANDS / FIELD</div>
+  <div class="sl">
+   <label><span>GESTURE STABILITY <output id="oStab">HIGH</output></span><input id="sStab" type="range" min="1" max="3" step="1" value="3"></label>
+   <label><span>FINGER PULL <output id="oPull">0.7</output></span><input id="sPull" type="range" min="0.2" max="2.5" step="0.1" value="0.7"></label>
+   <label><span>FINGER REACH <output id="oReach">3.0 m</output></span><input id="sReach" type="range" min="1" max="6" step="0.25" value="3"></label>
+   <label class="tenOnly"><span>EDGE CABLE TENSION <output id="oEdge">1.5</output></span><input id="sEdge" type="range" min="0.4" max="4" step="0.1" value="1.5"></label>
+   <label><span>LIGHT PARTICLES <output id="oFlow">1600</output></span><input id="sFlow" type="range" min="300" max="3000" step="100" value="1600"></label>
+   <label><span>TRAIL / WORLD-LINES <output id="oTrail">0.35</output></span><input id="sTrail" type="range" min="0" max="0.85" step="0.05" value="0.35"></label>
+  </div>
+  <div class="ctrls"><button class="btn on" id="tRel" type="button">RELATIONS</button><button class="btn on" id="tRef" type="button">FLOOR REFLECTION</button><button class="btn" id="tOrbit" type="button">AUTO ORBIT</button></div>
+  <div class="ctrls"><button class="btn on" id="vPersp" type="button">PERSPECTIVE</button><button class="btn" id="vElev" type="button">ELEVATION</button><button class="btn" id="vPlan" type="button">PLAN</button></div>
+
+  <div id="tenStats">
+   <div class="lab">SYSTEM</div>
+   <div class="stats">
+    <span>POINTS <em id="stP">0</em></span><span>MASTS <em id="stK">0</em></span>
+    <span>AREA <em id="stA">0 m²</em></span><span>PEAK <em id="stH">0 m</em></span>
+    <span>HANDS <em id="stHd">0</em></span><span>LIGHT HELD <em id="stL">0</em></span>
+   </div>
+   <div class="ctrls"><button class="btn" id="export" type="button">EXPORT .OBJ</button></div>
+  </div>
+ </div>
+</aside>
+
+<div id="camwrap"><div class="camlab">CAMERA · MIRRORED</div><video id="vid" playsinline muted></video><canvas id="ov"></canvas></div>
+<div class="foot"><span id="footL">FINGERTIP <b>→</b> FORCE <b>→</b> LIGHT <b>→</b> TENSION</span><span>CONTRACTION <b>↔</b> EXPANSION</span></div>
+
+<script>
+(()=>{
+const $=id=>document.getElementById(id);
+const cv=$('c'),ctx=cv.getContext('2d');
+const R=Math.random,PI=Math.PI,MAG='#ff4aa8';
+const lerp=(a,b,t)=>a+(b-a)*t,clamp=(v,a,b)=>v<a?a:v>b?b:v,ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+const easeBack=t=>{const c1=1.3,c3=c1+1;return 1+c3*Math.pow(t-1,3)+c1*Math.pow(t-1,2)};
+const l3=(a,b,t)=>[lerp(a[0],b[0],t),lerp(a[1],b[1],t),lerp(a[2],b[2],t)];
+const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]],add=(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]],scl=(a,s)=>[a[0]*s,a[1]*s,a[2]*s];
+const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2],len=a=>Math.hypot(a[0],a[1],a[2]),norm=a=>{const l=len(a)||1;return[a[0]/l,a[1]/l,a[2]/l]};
+const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+
+const S={pull:.7,reach:3,edge:1.5,flow:1600,trail:.35,rel:true,ref:true,orbit:false,stab:3,zone:1,drift:1,dust:.12};
+// gesture stability → debounce frames, hold times, smoothing
+const ST=()=>({db:1+2*S.stab,alpha:.62-.1*S.stab,place:.35+.15*S.stab,grab:.12+.07*S.stab,edge:.2+.15*S.stab,fists:1.2+.35*S.stab,dz:.03*S.stab});
+let MODE='TENSILE';
+let VW=0,VH=0,DPR=1,CX=0,CY=0,FOV=0;
+function resize(){DPR=Math.min(devicePixelRatio||1,1.5);VW=innerWidth;VH=innerHeight;cv.width=VW*DPR;cv.height=VH*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);
+ const narrow=VW<=760;CX=narrow?VW/2:(VW-346)/2+20;CY=narrow?VH*.3:VH*.56;FOV=Math.min(narrow?VW:VW-346,VH)*1.12;ctx.fillStyle='#000';ctx.fillRect(0,0,VW,VH)}
+addEventListener('resize',resize);resize();
+function sprite(r,g,b){const c=document.createElement('canvas');c.width=c.height=64;const x=c.getContext('2d');const gr=x.createRadialGradient(32,32,0,32,32,32);gr.addColorStop(0,`rgba(${r},${g},${b},1)`);gr.addColorStop(.16,`rgba(${r},${g},${b},.6)`);gr.addColorStop(.45,`rgba(${r},${g},${b},.13)`);gr.addColorStop(1,`rgba(${r},${g},${b},0)`);x.fillStyle=gr;x.fillRect(0,0,64,64);return c}
+const sprW=sprite(255,255,255),sprM=sprite(255,60,160),sprR=sprite(255,70,70);
+let toastT=0;function toast(s){const t=$('toast');t.textContent=s;t.style.opacity=1;toastT=1.6}
+
+/* ---------- view ---------- */
+const OY=2;
+const VIEWS={TENSILE:{tx:0,ty:OY,tz:3.6,d:30,p:.24},BODY:{tx:0,ty:0,tz:1.1,d:15,p:.3}};
+const V={yaw:-.5,pitch:.24,dist:30,tx:0,ty:OY,tz:3.6,gy:-.5,gp:.24,gd:30,gtx:0,gty:OY,gtz:3.6};
+let E=[0,0,0],RT=[1,0,0],UP=[0,0,1],FW=[0,1,0],FF=[0,1,0];
+function basis(){const cp=Math.cos(V.pitch),sp=Math.sin(V.pitch);E=[V.tx+V.dist*cp*Math.sin(V.yaw),V.ty-V.dist*cp*Math.cos(V.yaw),V.tz+V.dist*sp];FW=norm(sub([V.tx,V.ty,V.tz],E));RT=norm([FW[1],-FW[0],0]);UP=cross(RT,FW);FF=norm([FW[0],FW[1],0])}
+let PX=0,PY=0,PD=0;
+function pr(x,y,z){const dx=x-E[0],dy=y-E[1],dz=z-E[2],cz=dx*FW[0]+dy*FW[1]+dz*FW[2];if(cz<.2)return false;const s=FOV/cz;PX=CX+(dx*RT[0]+dy*RT[1]+dz*RT[2])*s;PY=CY-(dx*UP[0]+dy*UP[1]+dz*UP[2])*s;PD=cz;return true}
+function line3(a,b){if(!pr(a[0],a[1],a[2]))return false;const x=PX,y=PY;if(!pr(b[0],b[1],b[2]))return false;ctx.moveTo(x,y);ctx.lineTo(PX,PY);return true}
+function rayPlane(sx,sy,Q,n){const d=add(add(FW,scl(RT,(sx-CX)/FOV)),scl(UP,-(sy-CY)/FOV));const den=dot(d,n);if(Math.abs(den)<1e-4)return null;const t=dot(sub(Q,E),n)/den;return t>0?add(E,scl(d,t)):null}
+
+/* =====================================================================
+   PART 1 — TENSILE SYSTEM (anchors + optional centre)
+   ===================================================================== */
+const SEG=10,NR=16,MAXA=10,MAXNS=MAXA*SEG,MAXN=(NR+1)*MAXNS;
+const P=new Float32Array(MAXN*3),D=new Float32Array(MAXN*3),MF=new Float32Array(MAXN*3),DL=new Float32Array(MAXN),pin=new Uint8Array(MAXN),SX=new Float32Array(MAXN),SY=new Float32Array(MAXN),OK=new Uint8Array(MAXN),U=new Float32Array(MAXN).fill(1);
+let anchors=[],order=[],NA=0,NS=0,N=0;
+const center={on:false,x:0,y:OY,cz:8,rc:.75,t:{x:0,y:OY,cz:8,rc:.75}};
+const mkA=p=>({p:[...p],t:[...p],del:false,delT:0,hot:0});
+const ringA=(k,Rr,a0,zf)=>Array.from({length:k},(_,i)=>{const a=a0+i*2*PI/k;return mkA([Rr*Math.cos(a),OY+Rr*Math.sin(a),zf(i)])});
+const SEEDS={
+ CONE:()=>({a:ringA(4,8,PI/4,i=>i%2?.35:5),c:{on:true,cz:10,rc:.75}}),
+ HYPAR:()=>({a:ringA(4,7,PI/4,i=>[8,.6,6.2,.6][i]),c:{on:false}}),
+ OCULUS:()=>({a:ringA(6,9,PI/6,i=>i%2?.3:6.5),c:{on:true,cz:7.5,rc:2.4}}),
+ FUNNEL:()=>({a:ringA(4,7.5,PI/4,i=>i%2?6:6.8),c:{on:true,cz:1.6,rc:.45}}),
+ WAVE:()=>({a:ringA(6,8,0,i=>i%2?.5:7.5),c:{on:false}}),
+ SAIL:()=>({a:[mkA([0,OY-7,10]),mkA([6,OY+3.5,.3]),mkA([-6,OY+3.5,.3])],c:{on:false}})};
+function rimAvg(){let z=0;for(const a of anchors)z+=a.p[2];return z/Math.max(1,anchors.length)}
+function centroid(){let x=0,y=0;for(const a of anchors){x+=a.p[0];y+=a.p[1]}return[x/anchors.length,y/anchors.length]}
+function centerMode(){if(!center.on)return'free';return center.cz>rimAvg()+.5?(center.rc<1.3?'peak':'ring'):'funnel'}
+function sortA(){const[cx,cy]=centroid();order=anchors.slice().sort((a,b)=>Math.atan2(a.p[1]-cy,a.p[0]-cx)-Math.atan2(b.p[1]-cy,b.p[0]-cx))}
+function bref(s){const j=Math.floor(s/SEG),t=(s%SEG)/SEG;return l3(order[j].p,order[(j+1)%NA].p,t)}
+function applyPins(){
+ for(let j=0;j<NA;j++){const i=NR*NS+j*SEG,o=i*3,p=order[j].p;P[o]=p[0];P[o+1]=p[1];P[o+2]=p[2]}
+ if(center.on)for(let s=0;s<NS;s++){const b=bref(s),dx=b[0]-center.x,dy=b[1]-center.y,l=Math.hypot(dx,dy)||1,o=s*3;P[o]=center.x+dx/l*center.rc;P[o+1]=center.y+dy/l*center.rc;P[o+2]=center.cz}
+}
+function initMesh(){const cz=center.on?center.cz:rimAvg(),[cx,cy]=center.on?[center.x,center.y]:centroid(),rc=center.on?center.rc:.12;
+ for(let s=0;s<NS;s++){const b=bref(s),dx=b[0]-cx,dy=b[1]-cy,l=Math.hypot(dx,dy)||1,rx=cx+dx/l*rc,ry=cy+dy/l*rc;
+  for(let r=0;r<=NR;r++){const u=r/NR,o=(r*NS+s)*3;P[o]=lerp(rx,b[0],u);P[o+1]=lerp(ry,b[1],u);P[o+2]=lerp(cz,b[2],u)}}}
+function relax(it){const wc=S.edge,w=2*wc+1,om=1.5,cp=center.on;
+ for(let n=0;n<it;n++){let cx=0,cy=0,cz=0;if(!cp){for(let s=0;s<NS;s++){cx+=P[s*3];cy+=P[s*3+1];cz+=P[s*3+2]}cx/=NS;cy/=NS;cz/=NS}
+  for(let r=0;r<=NR;r++)for(let s=0;s<NS;s++){const i=r*NS+s;if(pin[i])continue;const a=(r*NS+(s-1+NS)%NS)*3,b=(r*NS+(s+1)%NS)*3,o=i*3;
+   for(let q=0;q<3;q++){let v;if(r===NR){const c=((r-1)*NS+s)*3;v=(wc*(P[a+q]+P[b+q])+P[c+q])/w}else if(r===0){const c=(NS+s)*3,cc=q===0?cx:q===1?cy:cz;v=(P[a+q]+P[b+q]+P[c+q]+2*cc)/5}else{const c=((r-1)*NS+s)*3,d=((r+1)*NS+s)*3;v=(P[a+q]+P[b+q]+P[c+q]+P[d+q])/4}P[o+q]+=om*(v-P[o+q])}}}}
+let phase='MORPH',MT=0,MDUR=.9,tc=0,sing=[0,OY,5],pendingSeed=null;
+function rebuild(emitFrom){
+ const oNS=NS,oN=N,old=D.slice(0,oN*3);
+ NA=anchors.length;sortA();NS=NA*SEG;N=(NR+1)*NS;pin.fill(0);
+ for(let j=0;j<NA;j++)pin[NR*NS+j*SEG]=1;if(center.on)for(let s=0;s<NS;s++)pin[s]=1;
+ applyPins();initMesh();relax(90);
+ for(let i=0;i<N;i++){const r=Math.floor(i/NS),s=i%NS,o=i*3;
+  if(emitFrom){MF[o]=emitFrom[0];MF[o+1]=emitFrom[1];MF[o+2]=emitFrom[2];const dd=Math.hypot(P[o]-emitFrom[0],P[o+1]-emitFrom[1],P[o+2]-emitFrom[2]);DL[i]=dd*.06+R()*.25}
+  else if(oN){const so=Math.round(s/NS*oNS)%oNS,q=(r*oNS+so)*3;MF[o]=old[q];MF[o+1]=old[q+1];MF[o+2]=old[q+2];DL[i]=0}
+  else{MF[o]=P[o];MF[o+1]=P[o+1];MF[o+2]=P[o+2];DL[i]=0}}
+ MDUR=emitFrom?1.15:.8;MT=0;phase='MORPH';
+ if(oNS)for(let i=0;i<MAXF;i++)fs[i]=fs[i]*NS/oNS;
+}
+function loadSeed(name){const sd=SEEDS[name]();anchors=sd.a;center.on=!!sd.c.on;if(sd.c.on){center.x=0;center.y=OY;center.cz=sd.c.cz;center.rc=sd.c.rc;Object.assign(center.t,{x:0,y:OY,cz:sd.c.cz,rc:sd.c.rc})}}
+function collapse(at,seed){if(phase==='COLLAPSE')return;sing=[...at];pendingSeed=seed;phase='COLLAPSE';tc=0;setPhase('COLLAPSE')}
+function setCenter(mode){
+ const ra=rimAvg(),was=center.on;
+ if(mode==='none'){center.on=false}
+ else{center.on=true;center.x=center.t.x=centroid()[0];center.y=center.t.y=centroid()[1];
+  if(mode==='peak'){center.t.cz=Math.max(ra+4,8);center.t.rc=.75}
+  else if(mode==='ring'){center.t.cz=Math.max(ra+2.5,6.5);center.t.rc=2.4}
+  else{center.t.cz=Math.max(.6,Math.min(1.6,ra-3));center.t.rc=.45}
+  if(!was){center.cz=center.t.cz;center.rc=center.t.rc}}
+ if(was!==center.on)rebuild(null);
+}
+function elements(){const el=[];const [ox,oy]=center.on?[center.x,center.y]:centroid();
+ for(const a of anchors){const c=a.p;let dx=c[0]-ox,dy=c[1]-oy;const l=Math.hypot(dx,dy)||1;dx/=l;dy/=l;
+  if(c[2]>1.4){const tl=c[2]*.09;el.push({t:'mast',a:[c[0]+dx*tl,c[1]+dy*tl,0],b:c});const an=Math.atan2(dy,dx);for(const sg of[-1,1])el.push({t:'cable',a:c,b:[c[0]+Math.cos(an+sg*.6)*c[2]*.75,c[1]+Math.sin(an+sg*.6)*c[2]*.75,0]})}
+  else el.push({t:'cable',a:c,b:[c[0]+dx*1.4,c[1]+dy*1.4,0]})}
+ const m=centerMode(),rn=s=>[D[s*3],D[s*3+1],D[s*3+2]];
+ const high=order.map((a,j)=>[a,j]).filter(([a])=>a.p[2]>1.4);
+ if(m==='peak'||(m==='ring'&&!high.length)){const top=[center.x,center.y,center.cz+1.4];el.push({t:'mast',a:[center.x,center.y,0],b:top});for(let s=0;s<NS;s+=5)el.push({t:'cable',a:top,b:rn(s)})}
+ else if(m==='ring')for(const[a,j]of high){el.push({t:'cable',a:a.p,b:rn(j*SEG)});el.push({t:'cable',a:a.p,b:rn((j*SEG+SEG/2)%NS)})}
+ else if(m==='funnel')el.push({t:'mast',a:[center.x,center.y,0],b:[center.x,center.y,center.cz]});
+ return el}
+
+/* =====================================================================
+   PART 2 — BODY → SPACE (small figure + field of floating light)
+   ===================================================================== */
+const J={head:0,neck:1,shL:2,shR:3,elL:4,elR:5,wrL:6,wrR:7,pel:8,hipL:9,hipR:10,knL:11,knR:12,anL:13,anR:14};
+const BONES=[[0,1],[1,2],[1,3],[2,4],[4,6],[3,5],[5,7],[1,8],[8,9],[8,10],[9,11],[11,13],[10,12],[12,14],[2,3],[9,10]];
+function poseStand(t){const b=1+.006*Math.sin(t*1.6);return[[0,0,1.68*b],[0,0,1.5*b],[-.19,0,1.45*b],[.19,0,1.45*b],[-.23,0,1.17],[.23,0,1.17],[-.25,.03,.9],[.25,.03,.9],[0,0,.95],[-.1,0,.95],[.1,0,.95],[-.1,0,.5],[.1,0,.5],[-.11,0,.06],[.11,0,.06]]}
+function poseGait(ph,run){const A=run?.72:.36,lean=run?.2:.04,kb=run?1.5:.6,eb=run?1.5:.25,J_=poseStand(0);
+ const pz=(run?.9:.94)+(run?.06:.02)*Math.abs(Math.sin(ph));
+ const legs=[[J.hipL,J.knL,J.anL,-.1,0],[J.hipR,J.knR,J.anR,.1,PI]];
+ for(const[h,k,a,x,off]of legs){const th=A*Math.sin(ph+off),b=kb*Math.max(0,Math.cos(ph+off));const hip=[x,0,pz];J_[h]=hip;J_[k]=[x,hip[1]+Math.sin(th)*.45,pz-Math.cos(th)*.45];J_[a]=[x,J_[k][1]+Math.sin(th-b)*.45,J_[k][2]-Math.cos(th-b)*.45]}
+ J_[J.pel]=[0,0,pz];const up=pz+.5;J_[J.neck]=[0,0,up+.05];J_[J.head]=[0,0,up+.23];J_[J.shL]=[-.19,0,up];J_[J.shR]=[.19,0,up];
+ for(const[s,e,w,x,off]of[[J.shL,J.elL,J.wrL,-.2,PI],[J.shR,J.elR,J.wrR,.2,0]]){const ps=-.85*A*Math.sin(ph+off);J_[e]=[x*1.1,Math.sin(ps)*.28,up-Math.cos(ps)*.28];J_[w]=[x*1.1,J_[e][1]+Math.sin(ps+eb)*.27,J_[e][2]-Math.cos(ps+eb)*.27]}
+ for(const i of[J.head,J.neck,J.shL,J.shR,J.elL,J.elR,J.wrL,J.wrR]){const p=J_[i],dz=p[2]-pz;J_[i]=[p[0],p[1]+dz*Math.sin(lean),pz+dz*Math.cos(lean)]}
+ let mn=Math.min(J_[J.anL][2],J_[J.anR][2])-.06;for(const p of J_)p[2]-=mn;return J_}
+function poseSit(t){const b=.004*Math.sin(t*1.4);return[[0,-.06,1.24+b],[0,-.08,1.06+b],[-.19,-.08,1.01+b],[.19,-.08,1.01+b],[-.22,.04,.76],[.22,.04,.76],[-.14,.3,.56],[.14,.3,.56],[0,-.05,.5],[-.1,-.05,.5],[.1,-.05,.5],[-.11,.42,.5],[.11,.42,.5],[-.12,.44,.06],[.12,.44,.06]]}
+function poseHug(t){const s=.01*Math.sin(t*1.1);return[[.06,.1,1.64],[0,.05,1.48],[-.19,.05,1.44],[.19,.05,1.44],[-.27,.27,1.3],[.27,.27,1.3],[.12,.47,1.27+s],[-.12,.47,1.22-s],[0,0,.95],[-.1,0,.95],[.1,0,.95],[-.1,.02,.5],[.1,.02,.5],[-.11,0,.06],[.11,0,.06]]}
+function poseLie(t){const b=.01*Math.sin(t*1.2);return[[0,1.62,.2],[0,1.45,.17+b],[-.2,1.4,.16],[.2,1.4,.16],[-.32,1.15,.1],[.32,1.15,.1],[-.3,.9,.08],[.3,.9,.08],[0,.95,.14+b],[-.1,.95,.13],[.1,.95,.13],[-.11,.5,.1],[.11,.5,.1],[-.12,.06,.08],[.12,.06,.08]]}
+const toWJ=(L,pos,h)=>{const f=[Math.cos(h),Math.sin(h)],r=[Math.sin(h),-Math.cos(h)];return L.map(p=>[pos[0]+r[0]*p[0]+f[0]*p[1],pos[1]+r[1]*p[0]+f[1]*p[1],p[2]])};
+const BD={m:'STAND',t:0,pos:[0,0],h:PI/2,alpha:0,ph:0,speed:0,trail:[],trailT:0,sep:1.6,blend:1,prev:null,figs:[],cycle:false,cycT:0};
+const WALK_A=3.4,WALK_B=2.4;
+const BINFO={
+ STAND:['Personal Shell','Standing still, the body\'s field is a vertical capsule: the intimate zone that travels with us. Light hovers at arm\'s length and breathes with the body.','BODY JOINTS → FIELD CHARGES\nΣ r² / d² = 1\n↓\nPERSONAL SHELL'],
+ WALK:['Gallery of Steps','Walking leaves space behind. Every step lays an arch of light over the path; the trail becomes a vaulted gallery that drifts back toward the body and fades.','PATH → SPINE\nSTEP → ARCH\n↓\nVAULTED GALLERY'],
+ RUN:['Wake Tunnel','Running stretches the field into a twisting tube, narrow at the body and widening behind it like a wake. Speed turns enclosure into flow.','SPEED → STRETCH\nTWIST ∝ CADENCE\n↓\nWAKE TUNNEL'],
+ SIT:['Canopy Room','Sitting lowers the body and the field gathers above it: a seat, a back and a low dome overhead — the oldest room.','LOWERED BODY → LOW CENTRE\nHEAD → CANOPY CHARGE\n↓\nDOME + SEAT'],
+ HUG:['Shared Cocoon','Two bodies approach. Their shells touch, merge and become one continuous envelope — two singularities, one space.','TWO FIELDS → APPROACH\nOVERLAP → FUSION\n↓\nONE ENVELOPE'],
+ LIE:['Horizon Bed','Lying down turns the field horizontal: a long, low capsule hugging the floor, the space of rest and of looking up.','VERTICAL → HORIZONTAL\nHEIGHT → LENGTH\n↓\nLOW CAPSULE']};
+function setBodyMove(m,fromCycle){if(!fromCycle){BD.cycle=false;$('tCycle').classList.remove('on')}
+ if(BD.m===m)return;BD.prev=BD.figs.map(f=>f.L.map(p=>[...p]));BD.blend=0;BD.m=m;BD.t=0;
+ if(m==='WALK'||m==='RUN'){BD.trail=[]}if(m==='HUG')BD.sep=1.6;
+ document.querySelectorAll('.mv').forEach(b=>b.classList.toggle('on',b.dataset.m===m));
+ for(let i=0;i<MAXF;i++){bu[i]=R();vx[i]+=(R()-.5)*3;vy[i]+=(R()-.5)*3;vz[i]+=R()*2}
+ showBodyInfo()}
+function showBodyInfo(){const d=BINFO[BD.m];$('num').textContent='BODY / '+BD.m;$('title').textContent=d[0];$('desc').textContent=d[1];$('formula').textContent=d[2]}
+const CYC=['STAND','WALK','RUN','SIT','HUG','LIE'];
+function updateBody(dt){
+ BD.t+=dt;BD.blend=Math.min(1,BD.blend+dt/.7);
+ if(BD.cycle){BD.cycT+=dt;if(BD.cycT>8){BD.cycT=0;setBodyMove(CYC[(CYC.indexOf(BD.m)+1)%CYC.length],true)}}
+ const m=BD.m;let figs=[];
+ if(m==='WALK'||m==='RUN'){const sp=m==='RUN'?3.8:1.3,ar=(WALK_A+WALK_B)/2;BD.alpha+=dt*sp/ar;BD.speed=lerp(BD.speed,sp,dt*2);
+  const target=[WALK_A*Math.cos(BD.alpha),WALK_B*Math.sin(BD.alpha)];
+  BD.pos=BD.blend<1?l3([...BD.pos,0],[...target,0],BD.blend*.25).slice(0,2):target;
+  BD.h=Math.atan2(WALK_B*Math.cos(BD.alpha),-WALK_A*Math.sin(BD.alpha));BD.ph+=dt*2*PI*(m==='RUN'?1.45:.95);
+  BD.trailT+=dt;if(BD.trailT>.05){BD.trailT=0;BD.trail.push([BD.pos[0],BD.pos[1]]);const cap=m==='RUN'?110:150;if(BD.trail.length>cap)BD.trail.shift()}
+  figs.push({L:toWJ(poseGait(BD.ph,m==='RUN'),BD.pos,BD.h)})}
+ else{BD.speed=lerp(BD.speed,0,dt*3);const k=Math.min(1,dt*1.5);BD.pos=[lerp(BD.pos[0],0,k),lerp(BD.pos[1],0,k)];
+  let dh=(PI/2-BD.h)%(2*PI);if(dh>PI)dh-=2*PI;if(dh<-PI)dh+=2*PI;BD.h+=dh*k;
+  if(m==='STAND')figs.push({L:toWJ(poseStand(BD.t),BD.pos,BD.h)});
+  else if(m==='SIT')figs.push({L:toWJ(poseSit(BD.t),BD.pos,BD.h),stool:true});
+  else if(m==='LIE')figs.push({L:toWJ(poseLie(BD.t),[BD.pos[0],BD.pos[1]-.8],BD.h)});
+  else if(m==='HUG'){BD.sep=Math.max(.2,BD.sep-dt*.6);const walking=BD.sep>.3;BD.ph+=dt*2*PI*.9*(walking?1:0);
+   const w=clamp((.55-BD.sep)/.3,0,1);
+   for(const sd of[-1,1]){const pos=[BD.pos[0]+sd*BD.sep,BD.pos[1]],h=sd<0?0:PI;const G=poseGait(BD.ph+(sd>0?PI:0),false),H=poseHug(BD.t+sd);
+    figs.push({L:toWJ(G.map((p,i)=>l3(p,H[i],w)),pos,h)})}}}
+ if(BD.prev&&BD.blend<1&&BD.prev.length===figs.length){const e=ease(BD.blend);figs=figs.map((f,k)=>({...f,L:f.L.map((p,i)=>l3(BD.prev[k][i],p,e))}))}
+ BD.figs=figs;
+ // field charges from joints
+ const z=S.zone*(1+.035*Math.sin(T*1.2));const C=[];
+ const mid=(a,b)=>l3(a,b,.5);
+ if(m==='STAND'||m==='SIT'||m==='HUG'||m==='LIE'){
+  for(const f of figs){const L=f.L;
+   if(m==='LIE'){C.push([...L[J.pel],.75*z],[...L[J.neck],.7*z],[...L[J.head],.6*z],[...mid(L[J.knL],L[J.knR]),.6*z],[...mid(L[J.anL],L[J.anR]),.5*z])}
+   else{C.push([...L[J.pel],(m==='HUG'?.82:.95)*z],[...L[J.neck],(m==='HUG'?.78:.85)*z],[...L[J.head],.68*z],[...mid(L[J.knL],L[J.knR]),.7*z],[...mid(L[J.anL],L[J.anR]),.55*z])}
+   if(m==='SIT'){const hd=L[J.head];C.push([hd[0],hd[1],hd[2]+.8,1.25*z],[L[J.pel][0],L[J.pel][1],.85,.8*z])}}}
+ BD.C=C;
+ const c0=figs.length===2?mid(figs[0].L[J.pel],figs[1].L[J.pel]):figs[0].L[J.pel];BD.center=[c0[0],c0[1],m==='SIT'?.85:m==='LIE'?.3:1.05];
+}
+function field(x,y,z,C){let f=0;for(let k=0;k<C.length;k++){const c=C[k],dx=x-c[0],dy=y-c[1],dz=z-c[2];f+=c[3]*c[3]/(dx*dx+dy*dy+dz*dz+1e-4)}return f}
+function shellPoint(i,out){const C=BD.C,c=BD.center,el=lerp(-.35,1.45,bv[i])+.12*Math.sin(T*.4*S.drift+i),az=baz[i];
+ const ce=Math.cos(el),dx=ce*Math.cos(az),dy=ce*Math.sin(az),dz=Math.sin(el);
+ let t=.15;while(t<6&&field(c[0]+dx*t,c[1]+dy*t,c[2]+dz*t,C)>1)t+=.3;let lo=Math.max(0,t-.3),hi=t;
+ for(let k=0;k<6;k++){const m=(lo+hi)/2;if(field(c[0]+dx*m,c[1]+dy*m,c[2]+dz*m,C)>1)lo=m;else hi=m}
+ out[0]=c[0]+dx*hi;out[1]=c[1]+dy*hi;out[2]=Math.max(.02,c[2]+dz*hi)}
+function trailPoint(i,out){const T_=BD.trail,L=T_.length;if(L<3){const f=BD.figs[0].L[J.pel];out[0]=f[0];out[1]=f[1];out[2]=1;return}
+ const u=bu[i],fi=(L-1)*(1-u),i0=Math.floor(fi),i1=Math.min(L-1,i0+1),a=fi-i0,px_=lerp(T_[i0][0],T_[i1][0],a),py_=lerp(T_[i0][1],T_[i1][1],a);
+ const j0=Math.max(0,i0-2),j1=Math.min(L-1,i0+2);let tx=T_[j1][0]-T_[j0][0],ty=T_[j1][1]-T_[j0][1];const tl=Math.hypot(tx,ty)||1;tx/=tl;ty/=tl;const nx=-ty,ny=tx;
+ const zz=S.zone;
+ if(BD.m==='WALK'){const th=PI*bv[i];out[0]=px_+nx*Math.cos(th)*1.15*zz;out[1]=py_+ny*Math.cos(th)*1.15*zz;out[2]=Math.sin(th)*2.45*zz+.02}
+ else{const th=2*PI*bv[i]+u*14+T*2*S.drift,rho=.72*zz*(.5+u),zc=1.1*(1-.15*u);out[0]=px_+nx*Math.cos(th)*rho;out[1]=py_+ny*Math.cos(th)*rho;out[2]=Math.max(.02,zc+Math.sin(th)*rho)}}
+
+/* ---------- light particles ---------- */
+const MAXF=3000;
+const fr=new Float32Array(MAXF),fs=new Float32Array(MAXF),fvr=new Float32Array(MAXF),fvs=new Float32Array(MAXF),fb=new Float32Array(MAXF),
+ px=new Float32Array(MAXF),py=new Float32Array(MAXF),pz=new Float32Array(MAXF),vx=new Float32Array(MAXF),vy=new Float32Array(MAXF),vz=new Float32Array(MAXF),
+ st=new Uint8Array(MAXF),sh=new Int8Array(MAXF),stt=new Float32Array(MAXF),heat=new Float32Array(MAXF),
+ bu=new Float32Array(MAXF),bv=new Float32Array(MAXF),baz=new Float32Array(MAXF),bsp=new Float32Array(MAXF),dust=new Float32Array(MAXF),
+ btx=new Float32Array(MAXF),bty=new Float32Array(MAXF),btz=new Float32Array(MAXF),bal=new Float32Array(MAXF).fill(1),hxp=new Float32Array(MAXF),hyp=new Float32Array(MAXF),hzp=new Float32Array(MAXF);
+for(let i=0;i<MAXF;i++){fr[i]=R()*NR;fs[i]=R()*SEG*4;fvr[i]=1.1+R()*2.2;fvs[i]=(R()-.5)*1.4;fb[i]=R();px[i]=(R()-.5)*16;py[i]=OY+(R()-.5)*16;pz[i]=R()*9;
+ bu[i]=R();bv[i]=Math.pow(R(),.8);baz[i]=R()*2*PI;bsp[i]=(R()<.5?-1:1)*(.08+R()*.25);dust[i]=R();hxp[i]=(R()-.5)*14;hyp[i]=(R()-.5)*14;hzp[i]=R()*5}
+let sparks=[];
+
+/* ---------- hands ---------- */
+const HC=[[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
+const TIPS=[4,8,12,16,20];
+function newHand(){return{present:false,lost:0,lm:null,w:null,tips:[],palm:[0,0,0],pinch:false,fist:false,open:false,pinchPt:[0,0,0],fq:null,pinchRaw:{x:.5,y:.5},mode:'none',grab:null,cand:null,pt:0,cap:0,fistT:0,pc:0,fc:0,age:0,curl:2,pr:1}}
+const hands=[newHand(),newHand()];
+const CAM={on:false,lm:null,vid:$('vid'),ov:$('ov'),last:-1,busy:false,fake:null};
+const BASE='https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
+async function startCamera(){if(CAM.on||CAM.busy)return;CAM.busy=true;const st_=$('camstat');
+ try{
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('this browser view does not allow camera access — download the file and open it in Chrome or Edge');
+  st_.textContent='Asking for camera…';
+  const stream=await navigator.mediaDevices.getUserMedia({video:{width:640,height:480,facingMode:'user'},audio:false});
+  CAM.vid.srcObject=stream;await CAM.vid.play();CAM.ov.width=640;CAM.ov.height=480;$('camwrap').style.display='block';
+  st_.textContent='Loading hand-tracking model…';
+  let vis=null;for(const u of[BASE+'/vision_bundle.mjs',BASE+'/+esm']){try{vis=await import(u);if(vis&&vis.HandLandmarker)break}catch(e){}}
+  if(!vis||!vis.HandLandmarker)throw new Error('could not load MediaPipe — check the internet connection');
+  const fsr=await vis.FilesetResolver.forVisionTasks(BASE+'/wasm');
+  const opts=d=>({baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',delegate:d},runningMode:'VIDEO',numHands:2,minHandDetectionConfidence:.6,minHandPresenceConfidence:.6,minTrackingConfidence:.6});
+  try{CAM.lm=await vis.HandLandmarker.createFromOptions(fsr,opts('GPU'))}catch(e){CAM.lm=await vis.HandLandmarker.createFromOptions(fsr,opts('CPU'))}
+  CAM.on=true;$('camBtn').classList.add('on');$('camBtn').textContent='■ STOP CAMERA';
+  S.orbit=false;$('tOrbit').classList.remove('on');
+  st_.textContent='Live. Stand ~1 m from the camera so both hands fit in the frame.';if(MODE==='TENSILE')setPhase('LIVE');
+ }catch(e){st_.textContent='Camera unavailable: '+(e.message||e)+'. Mouse controls still work.';const s=CAM.vid.srcObject;if(s)s.getTracks().forEach(t=>t.stop());$('camwrap').style.display='none'}
+ CAM.busy=false}
+function stopCamera(){const s=CAM.vid.srcObject;if(s)s.getTracks().forEach(t=>t.stop());CAM.on=false;$('camwrap').style.display='none';$('camBtn').classList.remove('on');$('camBtn').textContent='● START CAMERA';$('camstat').textContent='Camera off.';for(const h of hands)release(h),h.present=false;if(MODE==='TENSILE')setPhase('OFF')}
+const asp=4/3;
+function d2(a,b){return Math.hypot((a.x-b.x)*asp,a.y-b.y)}
+function toWorld(l,depth){const sc=V.dist/30,hx=(.5-l.x)*22*sc,hz=clamp(((1-l.y)*13-.3)*sc,.05,14),d=(depth+(-l.z)*14)*sc;return[V.tx+RT[0]*hx-FF[0]*d,V.ty+RT[1]*hx-FF[1]*d,hz]}
+function readHands(dt){
+ const K=ST();let res=null;
+ if(CAM.fake){res=CAM.fake}
+ else if(CAM.on&&CAM.vid.readyState>=2&&CAM.vid.currentTime!==CAM.last){CAM.last=CAM.vid.currentTime;try{res=CAM.lm.detectForVideo(CAM.vid,performance.now()).landmarks||[]}catch(e){res=null}}
+ if(res){
+  const used=[false,false],assign=[-1,-1];
+  res.slice(0,2).forEach((lm,k)=>{let best=-1,bd=1e9;hands.forEach((h,i)=>{if(used[i])return;const d=h.lm?Math.hypot(h.lm[0].x-lm[0].x,h.lm[0].y-lm[0].y):5+i;if(d<bd){bd=d;best=i}});used[best]=true;assign[best]=k});
+  hands.forEach((h,i)=>{const k=assign[i];if(k<0){h.lost+=dt;return}const lm=res[k];h.lost=0;if(!h.present){h.age=0;h.pc=h.fc=0}h.present=true;const a=K.alpha;
+   h.lm=h.lm&&h.age>0?lm.map((p,j)=>({x:lerp(h.lm[j].x,p.x,a),y:lerp(h.lm[j].y,p.y,a),z:lerp(h.lm[j].z,p.z,a)})):lm.map(p=>({...p}));
+   // gesture classification with hysteresis + debounce (must persist for several frames)
+   const L=h.lm,sc=d2(L[0],L[9])||.1;
+   h.curl=(d2(L[8],L[0])+d2(L[12],L[0])+d2(L[16],L[0])+d2(L[20],L[0]))/4/sc;h.pr=d2(L[4],L[8])/sc;
+   const fistRaw=h.fist?h.curl<1.42:h.curl<1.08;
+   if(fistRaw!==h.fist){if(++h.fc>=K.db+1){h.fist=fistRaw;h.fc=0}}else h.fc=0;
+   const pinchRaw=!h.fist&&(h.pinch?h.pr<.42:h.pr<.2)&&h.curl>1.15;
+   if(pinchRaw!==h.pinch){if(++h.pc>=K.db){const was=h.pinch;h.pinch=pinchRaw;h.pc=0;if(h.pinch&&!was)pinchStart(h);if(!h.pinch&&was)pinchEnd(h)}}else h.pc=0;
+   h.open=!h.fist&&!h.pinch&&h.curl>1.55});
+  drawOverlay(res);
+ }
+ for(const h of hands){if(h.present&&h.lost>.4){release(h);h.present=false;h.lm=null}}
+ for(const h of hands){if(!h.present)continue;h.age+=dt;const lm=h.lm,sc=d2(lm[0],lm[9])||.1;
+  const depth=clamp((sc-.17)/.17*5,-7,7);h.w=lm.map(l=>toWorld(l,depth));h.tips=TIPS.map(t=>h.w[t]);h.palm=l3(h.w[0],h.w[9],.6);
+  const q=l3(h.w[4],h.w[8],.5);h.fq=h.fq?l3(h.fq,q,.3):q;h.pinchPt=h.fq;h.pinchRaw={x:(lm[4].x+lm[8].x)/2,y:(lm[4].y+lm[8].y)/2}}
+}
+function drawOverlay(res){const o=CAM.ov.getContext('2d');o.clearRect(0,0,640,480);
+ res.forEach(lm=>{const h=hands.find(h=>h.lm&&Math.hypot(h.lm[0].x-lm[0].x,h.lm[0].y-lm[0].y)<.1);
+  o.strokeStyle='rgba(255,255,255,.8)';o.lineWidth=2;o.beginPath();for(const[a,b]of HC){o.moveTo(lm[a].x*640,lm[a].y*480);o.lineTo(lm[b].x*640,lm[b].y*480)}o.stroke();
+  o.fillStyle=MAG;for(const t of TIPS){o.beginPath();o.arc(lm[t].x*640,lm[t].y*480,6,0,7);o.fill()}
+  if(h){o.font='bold 15px monospace';o.fillStyle='#fff';const tag=h.fist?'FIST':h.pinch?'PINCH':h.open?'OPEN':'·';o.save();o.translate(lm[0].x*640,lm[0].y*480+22);o.scale(-1,1);o.fillText(tag,-20,0);o.restore()}});
+ if(MODE==='TENSILE'){o.strokeStyle='rgba(255,70,70,.6)';o.setLineDash([4,6]);o.strokeRect(.04*640,0,.92*640,480);o.setLineDash([])}}
+
+/* ---------- pinch building (tensile mode only) ---------- */
+function screenOf(p){return pr(p[0],p[1],p[2])?[PX,PY]:null}
+function pick(q,maxPx){const sq=screenOf(q);if(!sq)return null;let best=null,bd=maxPx;
+ for(const a of anchors){const s=screenOf(a.p);if(!s)continue;const d=Math.hypot(s[0]-sq[0],s[1]-sq[1]);if(d<bd){bd=d;best=a}}
+ if(center.on){const s=screenOf([center.x,center.y,center.cz]);if(s){const d=Math.hypot(s[0]-sq[0],s[1]-sq[1]);if(d<bd){bd=d;best='center'}}}
+ return best}
+function other(h){return hands[0]===h?hands[1]:hands[0]}
+function isGrabbed(a){return hands.some(h=>h.grab===a)}
+function pinchStart(h){if(XR.active||MODE!=='TENSILE'){h.mode='none';return}const g=pick(h.pinchPt,70);h.cand=g&&!(g!=='center'&&isGrabbed(g))?g:null;h.mode='pending';h.pt=0}
+function pinchEnd(h){
+ if(h.mode==='grab'&&h.grab&&h.grab!=='center'&&h.grab.del){if(anchors.length>3){anchors=anchors.filter(a=>a!==h.grab);rebuild(null);toast('POINT REMOVED')}else{h.grab.del=false;toast('MIN. 3 POINTS')}}
+ if(h.grab&&h.grab!=='center'){h.grab.del=false;h.grab.delT=0}
+ if(h.mode==='center2'){const o=other(h);if(center.remove){center.on=false;center.remove=false;rebuild(null);toast('CENTRE RELEASED — FREE SADDLE')}if(o.mode==='center2'){o.mode=o.pinch?'hold':'none'}}
+ h.mode='none';h.grab=null;h.cand=null}
+function release(h){if(h.pinch){h.pinch=false;pinchEnd(h)}if(h.cap)burst(h);h.fist=false;h.fistT=0;h.fq=null}
+function edgeOut(h){return h.pinchRaw.x<.04||h.pinchRaw.x>.96}
+let fistsT=0;
+function updateBuild(dt){
+ if(XR.active)return;
+ const K=ST();
+ if(MODE==='TENSILE')for(const h of hands){if(!h.present||!h.pinch)continue;const o=other(h);
+  if(h.mode==='pending'){h.pt+=dt;
+   if(o.present&&o.pinch&&o.mode==='pending'){h.mode=o.mode='center2';if(!center.on){center.on=true;const m=l3(h.pinchPt,o.pinchPt,.5);center.x=center.t.x=m[0];center.y=center.t.y=m[1];center.cz=center.t.cz=m[2];center.rc=center.t.rc=.8;rebuild(m)}setGuide('center')}
+   else if(h.cand&&h.pt>K.grab){h.mode='grab';h.grab=h.cand;h.cand=null;setGuide(h.grab==='center'?'center':'grab')}
+   else if(!h.cand&&h.pt>K.place){if(anchors.length>=MAXA){toast('MAX. '+MAXA+' POINTS');h.mode='hold'}else{const a=mkA(h.pinchPt);a.p[2]=a.t[2]=clamp(a.p[2],.15,13);anchors.push(a);h.mode='grab';h.grab=a;rebuild(h.pinchPt);toast('POINT PLACED');setGuide('place')}}}
+  else if(h.mode==='grab'&&h.grab){const q=[h.pinchPt[0],h.pinchPt[1],h.pinchPt[2]];
+   if(h.grab==='center'){if(Math.hypot(q[0]-center.t.x,q[1]-center.t.y,q[2]-center.t.cz)>K.dz){center.t.x=q[0];center.t.y=q[1];center.t.cz=clamp(q[2],.3,14)}}
+   else{const a=h.grab;if(len(sub(q,a.t))>K.dz)a.t=[q[0],q[1],clamp(q[2],.15,13)];
+    if(edgeOut(h)){a.delT+=dt;a.del=a.delT>K.edge;if(a.del)setGuide('del')}else{a.delT=0;a.del=false}}}
+  else if(h.mode==='center2'&&o.mode==='center2'&&o.pinch&&h===hands[0]){
+   const m=l3(h.pinchPt,o.pinchPt,.5),sp=Math.hypot(h.pinchPt[0]-o.pinchPt[0],h.pinchPt[1]-o.pinchPt[1])/2;
+   center.t.x=m[0];center.t.y=m[1];center.t.cz=clamp(m[2],.3,14);center.t.rc=clamp(sp*.6,.3,4.5);center.remove=Math.abs(center.t.cz-rimAvg())<.7}}
+ const bf=hands[0].present&&hands[1].present&&hands[0].fist&&hands[1].fist;
+ fistsT=bf?fistsT+dt:0;
+ if(fistsT>K.fists&&MODE==='TENSILE'&&phase!=='COLLAPSE'){fistsT=0;collapse(l3(hands[0].palm,hands[1].palm,.5),'HYPAR');for(const h of hands)h.cap=0}
+}
+
+/* ---------- mouse ---------- */
+const mouse={x:-1,y:-1,in:false,grab:null,orbit:null,world:null};
+function hitScreen(sx,sy,max){if(MODE!=='TENSILE')return null;let best=null,bd=max;for(const a of anchors){const s=screenOf(a.p);if(!s)continue;const d=Math.hypot(s[0]-sx,s[1]-sy);if(d<bd){bd=d;best=a}}
+ if(center.on){const s=screenOf([center.x,center.y,center.cz]);if(s){const d=Math.hypot(s[0]-sx,s[1]-sy);if(d<bd)best='center'}}return best}
+cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);const g=hitScreen(e.clientX,e.clientY,18);if(g){mouse.grab=g;setGuide(g==='center'?'center':'grab')}else{mouse.orbit={x:e.clientX,y:e.clientY};cv.classList.add('drag')}});
+cv.addEventListener('pointermove',e=>{mouse.x=e.clientX;mouse.y=e.clientY;mouse.in=true;
+ if(mouse.grab){const g=mouse.grab,Q=g==='center'?[center.x,center.y,center.cz]:g.p,w=rayPlane(e.clientX,e.clientY,Q,FF);if(w){if(g==='center'){center.t.x=w[0];center.t.y=w[1];center.t.cz=clamp(w[2],.3,14)}else g.t=[w[0],w[1],clamp(w[2],.15,13)]}}
+ else if(mouse.orbit){const dx=e.clientX-mouse.orbit.x,dy=e.clientY-mouse.orbit.y;mouse.orbit={x:e.clientX,y:e.clientY};V.gy+=dx*.006;V.gp=clamp(V.gp+dy*.005,.02,1.5);V.yaw=V.gy;V.pitch=V.gp;setView(null)}});
+const endP=()=>{mouse.grab=null;mouse.orbit=null;cv.classList.remove('drag')};cv.addEventListener('pointerup',endP);cv.addEventListener('pointercancel',endP);cv.addEventListener('pointerleave',()=>mouse.in=false);
+cv.addEventListener('dblclick',e=>{if(MODE!=='TENSILE')return;const g=hitScreen(e.clientX,e.clientY,18);
+ if(g&&g!=='center'){if(anchors.length>3){anchors=anchors.filter(a=>a!==g);rebuild(null);toast('POINT REMOVED')}else toast('MIN. 3 POINTS');return}
+ if(anchors.length>=MAXA){toast('MAX. '+MAXA+' POINTS');return}
+ const w=rayPlane(e.clientX,e.clientY,[V.tx,V.ty,0],FF);if(!w)return;w[2]=clamp(w[2],.15,13);anchors.push(mkA(w));rebuild(w);toast('POINT PLACED')});
+cv.addEventListener('wheel',e=>{e.preventDefault();V.gd=clamp(V.gd*Math.exp(e.deltaY*.001),6,90)},{passive:false});
+
+/* ---------- HUD ---------- */
+const PH={OFF:['00 / CAMERA OFF','Your Tensile System','Turn the camera on. Both hands are tracked — 21 joints each. Your fingertips become forces in the light field; pinching places, grabs and moves the points that hold the membrane.'],
+ LIVE:['01 / LIVE','Hands in the Field','Every fingertip is a force: the light that flows down the tension lines bends toward it, orbits it and returns when you let go. Pinch to touch the structure itself.'],
+ COLLAPSE:['02 / SINGULARITY','Collapse','Two fists: the whole membrane contracts into one point between your hands. The light is stored, not lost — it will be re-emitted as a new beginning.'],
+ EMIT:['03 / WHITE HOLE','Re-emission','The light leaves the singularity and finds a new equilibrium. Place, move and remove points to grow your own system from here.']};
+let curPh='';function setPhase(p){curPh=p;if(MODE!=='TENSILE')return;const d=PH[p];$('num').textContent=d[0];$('title').textContent=d[1];$('desc').textContent=d[2]}
+let guideK='',guideT=0;function setGuide(k){guideK=k;guideT=1.2}
+function guideFrame(dt){guideT-=dt;let k=guideT>0?guideK:'';
+ if(!k)for(const h of hands){if(!h.present)continue;if(h.fist)k='fist';else if(h.mode==='grab')k=h.grab&&h.grab.del?'del':h.grab==='center'?'center':'grab';else if(h.mode==='center2')k='center';else if(h.mode==='pending')k=h.cand?'grab':'place';else if(h.open&&!k)k='open'}
+ if(fistsT>0)k='reset';
+ document.querySelectorAll('.gi').forEach(g=>g.classList.toggle('on',g.dataset.k===k))}
+function setMode(m){MODE=m;const b=m==='BODY';
+ $('tabT').classList.toggle('on',!b);$('tabB').classList.toggle('on',b);
+ $('bodyUI').classList.toggle('hide',!b);$('tenUI').classList.toggle('hide',b);$('tenStats').classList.toggle('hide',b);$('formula').classList.toggle('hide',!b);
+ document.querySelectorAll('.tenOnly').forEach(e=>e.classList.toggle('hide',b));
+ $('kick').textContent=b?'BODY / LIGHT / SPACE / SYS_06':'HANDS / LIGHT / TENSION / SYS_05';
+ $('headline').innerHTML=b?'MOVEMENT<br>MAKES SPACE.':'BUILD IT<br>WITH YOUR HANDS.';
+ $('sub').innerHTML=b?'CHOOSE A MOVEMENT — THE FIGURE PERFORMS IT AND THE FLOATING LIGHT FORMS ITS SPACE<br>FINGERTIPS (CAMERA) OR THE MOUSE STILL PULL THE LIGHT · DRAG TO ORBIT · SCROLL TO ZOOM':'PINCH TO PLACE &amp; MOVE POINTS · FINGERTIPS PULL LIGHT · FIST GATHERS, OPEN RELEASES<br>NO CAMERA: DRAG POINTS · DOUBLE-CLICK TO ADD / REMOVE · DRAG SPACE TO ORBIT';
+ $('footL').innerHTML=b?'MOVEMENT <b>→</b> FIELD <b>→</b> LIGHT <b>→</b> SPACE':'FINGERTIP <b>→</b> FORCE <b>→</b> LIGHT <b>→</b> TENSION';
+ const v=VIEWS[m];V.gtx=v.tx;V.gty=v.ty;V.gtz=v.tz;V.gd=v.d;V.gp=v.p;
+ for(const h of hands){if(h.pinch&&h.mode!=='none')pinchEnd(h);h.mode='none'}
+ for(let i=0;i<MAXF;i++){vx[i]+=(R()-.5)*4;vy[i]+=(R()-.5)*4;vz[i]+=R()*3;st[i]=st[i]===1?1:0}
+ if(b)showBodyInfo();else setPhase(curPh||'OFF');
+ if(XR.active)xrReset();
+}
+
+/* ---------- update ---------- */
+let T=0,heldCount=0;
+const tmp=[0,0,0];
+function burst(h){let n=0;const hi=hands.indexOf(h);for(let i=0;i<MAXF;i++)if(st[i]===1&&sh[i]===hi){const u=R()*2-1,th=R()*2*PI,s=Math.sqrt(1-u*u),sp=(MODE==='BODY'?4:7)+R()*9;vx[i]=s*Math.cos(th)*sp;vy[i]=s*Math.sin(th)*sp;vz[i]=u*sp*.8+2;st[i]=2;stt[i]=0;heat[i]=1;n++}
+ h.cap=0;if(n>30)toast('RELEASED '+n+' LIGHT')}
+function update(dt){
+ T+=dt;if(toastT>0){toastT-=dt;if(toastT<=0)$('toast').style.opacity=0}
+ if(S.orbit&&!mouse.orbit)V.gy+=dt*.05;
+ const e=Math.min(1,dt*3);V.yaw+=(V.gy-V.yaw)*e;V.pitch+=(V.gp-V.pitch)*e;V.dist+=(V.gd-V.dist)*e;V.tx+=(V.gtx-V.tx)*e;V.ty+=(V.gty-V.ty)*e;V.tz+=(V.gtz-V.tz)*e;
+ basis();
+ readHands(dt);updateBuild(dt);
+ for(const h of hands){if(!h.present)continue;if(h.fist){h.fistT+=dt}else{if(h.cap>0)burst(h);h.fistT=0}}
+ // tensile system keeps relaxing in the background (so switching back is seamless)
+ const k=1-Math.exp(-dt*7);
+ for(const a of anchors){a.p=l3(a.p,a.t,k);a.hot=Math.max(0,a.hot-dt*2);if(isGrabbed(a)||mouse.grab===a)a.hot=1}
+ center.x=lerp(center.x,center.t.x,k);center.y=lerp(center.y,center.t.y,k);center.cz=lerp(center.cz,center.t.cz,k);center.rc=lerp(center.rc,center.t.rc,k);
+ if(!hands.some(h=>h.mode==='center2'))center.remove=false;
+ sortA();applyPins();relax(MODE==='TENSILE'?14:3);
+ if(phase==='COLLAPSE'){tc+=dt/1.1;const ee=ease(clamp(tc,0,1));
+  for(let i=0;i<N;i++){const o=i*3,qx=P[o]-sing[0],qy=P[o+1]-sing[1],qz=P[o+2]-sing[2],a=ee*3.2,ca=Math.cos(a),sa=Math.sin(a),s=1-ee;D[o]=sing[0]+(qx*ca-qy*sa)*s;D[o+1]=sing[1]+(qx*sa+qy*ca)*s;D[o+2]=sing[2]+qz*s;U[i]=1-ee}
+  if(tc>=1){loadSeed(pendingSeed);NS=0;N=0;rebuild(sing);setPhase('EMIT')}}
+ else if(phase==='MORPH'){MT+=dt;let done=true;
+  for(let i=0;i<N;i++){const o=i*3,u=clamp((MT-DL[i])/MDUR,0,1);if(u<1)done=false;const ee=easeBack(u);U[i]=u;D[o]=MF[o]+(P[o]-MF[o])*ee;D[o+1]=MF[o+1]+(P[o+1]-MF[o+1])*ee;D[o+2]=MF[o+2]+(P[o+2]-MF[o+2])*ee}
+  if(done){phase='EQ';if(curPh==='EMIT'||curPh==='COLLAPSE')setPhase(CAM.on?'LIVE':'OFF')}}
+ else{for(let i=0;i<N*3;i++)D[i]=P[i];for(let i=0;i<N;i++)U[i]=1}
+ if(MODE==='BODY')updateBody(dt);
+ // forces
+ const F=[];
+ for(const [hi,h] of hands.entries()){if(!h.present)continue;const ramp=clamp(h.age/.5,0,1);
+  if(h.fist)F.push({p:h.palm,type:'fist',h:hi,w:ramp});
+  else if(!h.pinch)for(const t of h.tips)F.push({p:t,type:'tip',w:ramp});
+  else F.push({p:h.pinchPt,type:'pinch',w:ramp})}
+ if(XR.immersive)for(const f of XR.handForces)F.push(f);
+ if(!XR.active&&!hands.some(h=>h.present)&&mouse.in&&!mouse.grab&&!mouse.orbit&&mouse.x>=0){const w=rayPlane(mouse.x,mouse.y,[V.tx,V.ty,V.tz],FF);mouse.world=w;if(w)F.push({p:w,type:'tip',w:1})}else mouse.world=null;
+ const body=MODE==='BODY',sc=body?.5:1;
+ let rimZ=0,cZ=0;for(let s=0;s<NS;s++){rimZ+=P[(NR*NS+s)*3+2];cZ+=P[s*3+2]}const flowDir=cZ>=rimZ?1:-1;
+ const nf=Math.min(MAXF,S.flow),RA=S.reach*sc,RA2=RA*RA,G=70*S.pull*sc,sw=26*S.pull*sc,KS=body?6:38,CD=2*Math.sqrt(KS)*(body?.75:1);
+ const tunnel=body&&(BD.m==='WALK'||BD.m==='RUN'),flowU=BD.m==='RUN'?.16:.07,odd=Math.floor(T*60)&1;
+ let held=0;
+ for(let i=0;i<nf;i++){
+  let tx,ty,tz;
+  if(body){
+   if(dust[i]<S.dust){hxp[i]+=Math.sin(T*.2+i)*dt*.2*S.drift;hyp[i]+=Math.cos(T*.17+i*1.3)*dt*.2*S.drift;hzp[i]=clamp(hzp[i]+Math.sin(T*.3+i*.7)*dt*.15*S.drift,.1,5);tx=hxp[i];ty=hyp[i];tz=hzp[i];bal[i]=.35}
+   else{
+    if(tunnel){bu[i]+=dt*flowU*S.drift;if(bu[i]>1){bu[i]-=1}bal[i]=Math.pow(1-bu[i],.7);trailPoint(i,tmp);btx[i]=tmp[0];bty[i]=tmp[1];btz[i]=tmp[2]}
+    else{baz[i]+=bsp[i]*dt*S.drift;bal[i]=1;if((i&1)===odd){shellPoint(i,tmp);btx[i]=tmp[0];bty[i]=tmp[1];btz[i]=tmp[2]}}
+    tx=btx[i];ty=bty[i];tz=btz[i]}}
+  else{
+   if(phase==='COLLAPSE')fr[i]=Math.max(0,fr[i]-6*dt);else fr[i]+=fvr[i]*flowDir*dt;fs[i]=(fs[i]+fvs[i]*dt+NS*8)%NS;
+   if(fr[i]>NR){fr[i]=R()*1.2;fs[i]=R()*NS}else if(fr[i]<0){fr[i]=NR-R()*1.2;fs[i]=R()*NS}
+   const r0=Math.min(NR-1,Math.floor(fr[i])),s0=Math.floor(fs[i])%NS,s1=(s0+1)%NS,a=fr[i]-r0,b=fs[i]-Math.floor(fs[i]);
+   const i00=(r0*NS+s0)*3,i01=(r0*NS+s1)*3,i10=((r0+1)*NS+s0)*3,i11=((r0+1)*NS+s1)*3;
+   tx=(D[i00]*(1-b)+D[i01]*b)*(1-a)+(D[i10]*(1-b)+D[i11]*b)*a;ty=(D[i00+1]*(1-b)+D[i01+1]*b)*(1-a)+(D[i10+1]*(1-b)+D[i11+1]*b)*a;tz=(D[i00+2]*(1-b)+D[i01+2]*b)*(1-a)+(D[i10+2]*(1-b)+D[i11+2]*b)*a;bal[i]=1}
+  if(st[i]===1){const h=hands[sh[i]];if(!h||!h.present||!h.fist){st[i]=2;stt[i]=0}else{held++;const c=h.palm,j=(.25+.25*Math.sin(T*3+i))*sc;px[i]=c[0]+Math.sin(i*12.9+T*4)*j;py[i]=c[1]+Math.cos(i*7.3+T*5)*j;pz[i]=c[2]+Math.sin(i*3.1+T*6)*j;heat[i]=1;continue}}
+  let ax=0,ay=0,az=0,wmax=0;
+  for(const f of F){const dx=f.p[0]-px[i],dy=f.p[1]-py[i],dz=f.p[2]-pz[i],q=dx*dx+dy*dy+dz*dz;
+   const rr=f.type==='fist'?RA2*2.2:RA2;if(q>rr)continue;const d=Math.sqrt(q)+1e-3,w=(1-d/Math.sqrt(rr))*f.w;
+   if(f.type==='fist'){const g=G*2.2*w+8*f.w;ax+=dx/d*g;ay+=dy/d*g;az+=dz/d*g;wmax=Math.max(wmax,Math.min(1,w*1.6));if(d<.45*sc+.1&&hands[f.h].fistT>.25){st[i]=1;sh[i]=f.h;hands[f.h].cap++}}
+   else{const g=G*w*(d>.35*sc?1:-.6);ax+=dx/d*g;ay+=dy/d*g;az+=dz/d*g;ax+=-dy/d*sw*w;ay+=dx/d*sw*w;az+=Math.sin(T*3+i)*sw*.3*w;wmax=Math.max(wmax,w*(f.type==='pinch'?.5:1))}}
+  let ks=KS*(1-.96*wmax);if(st[i]===2){stt[i]+=dt;ks*=clamp(stt[i]/1.6,0,1)**2;if(stt[i]>1.6)st[i]=0}
+  const cd=CD*(st[i]===2?.15:1);
+  ax+=ks*(tx-px[i])-cd*vx[i];ay+=ks*(ty-py[i])-cd*vy[i];az+=ks*(tz-pz[i])-cd*vz[i];
+  if(body){ax+=Math.sin(pz[i]*2+T*.7+i)*.4*S.drift;ay+=Math.cos(px[i]*2+T*.6+i)*.4*S.drift}
+  vx[i]+=ax*dt;vy[i]+=ay*dt;vz[i]+=az*dt;const v=Math.hypot(vx[i],vy[i],vz[i]),vm=body?12:22;if(v>vm){vx[i]*=vm/v;vy[i]*=vm/v;vz[i]*=vm/v}
+  px[i]+=vx[i]*dt;py[i]+=vy[i]*dt;pz[i]+=vz[i]*dt;if(pz[i]<0){pz[i]=-pz[i];vz[i]=-vz[i]*.5}
+  heat[i]=Math.max(wmax,heat[i]-dt*.8)}
+ heldCount=held;
+ for(const h of hands)if(h.present&&!h.fist)for(const t of h.tips)if(R()<dt*14)sparks.push({x:t[0],y:t[1],z:t[2],vx:(R()-.5)*.6,vy:(R()-.5)*.6,vz:(R()-.5)*.6,life:0});
+ for(let i=sparks.length-1;i>=0;i--){const p=sparks[i];p.life+=dt;if(p.life>1){sparks.splice(i,1);continue}p.x+=p.vx*dt;p.y+=p.vy*dt;p.z+=p.vz*dt}
+ if(sparks.length>600)sparks.splice(0,sparks.length-600);
+ guideFrame(dt);
+}
+
+/* ---------- render ---------- */
+const grid=new Map();let lastMasts=0;
+function render(){
+ ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;ctx.fillStyle=`rgba(0,0,0,${1-S.trail})`;ctx.fillRect(0,0,VW,VH);
+ ctx.globalCompositeOperation='lighter';
+ const body=MODE==='BODY',nf=Math.min(MAXF,S.flow);
+ // floor grid
+ ctx.strokeStyle='#fff';ctx.lineWidth=1;ctx.globalAlpha=body?.05:.035;ctx.beginPath();
+ if(body){for(let i=-10;i<=10;i+=1){line3([i,-10,0],[i,10,0]);line3([-10,i,0],[10,i,0])}}else{for(let i=-30;i<=30;i+=2){line3([i,-30+OY,0],[i,30+OY,0]);line3([-30,i+OY,0],[30,i+OY,0])}}ctx.stroke();
+ if(S.ref){ctx.fillStyle='#fff';ctx.globalAlpha=.08;for(let i=0;i<nf;i+=2)if(pr(px[i],py[i],-pz[i]))ctx.fillRect(PX,PY,1.5,1.5)}
+ if(!body)renderTensile();
+ // relations between light particles
+ if(S.rel){const d=body?.42:.75,d2_=d*d;grid.clear();for(let i=0;i<nf;i++){if(st[i]===1)continue;const key=((Math.floor(px[i]/d)+400)*1000+(Math.floor(py[i]/d)+400))*1000+(Math.floor(pz[i]/d)+400);let a=grid.get(key);if(!a){a=[];grid.set(key,a)}a.push(i)}
+  ctx.strokeStyle='#fff';ctx.globalAlpha=body?.11:.09;ctx.lineWidth=.5;ctx.beginPath();let cnt=0;
+  outer:for(let i=0;i<nf;i+=2){if(st[i]===1)continue;const cx=Math.floor(px[i]/d),cy=Math.floor(py[i]/d),cz=Math.floor(pz[i]/d);for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++)for(let c=-1;c<=1;c++){const arr=grid.get(((cx+a+400)*1000+(cy+b+400))*1000+(cz+c+400));if(!arr)continue;
+   for(const j of arr){if(j<=i)continue;const dx=px[i]-px[j],dy=py[i]-py[j],dz=pz[i]-pz[j];if(dx*dx+dy*dy+dz*dz<d2_){if(pr(px[i],py[i],pz[i])){const x=PX,y=PY;if(pr(px[j],py[j],pz[j])){ctx.moveTo(x,y);ctx.lineTo(PX,PY)}}if(++cnt>2000)break outer}}}}ctx.stroke()}
+ // particles
+ ctx.fillStyle='#fff';
+ for(let i=0;i<nf;i++){if(!pr(px[i],py[i],pz[i]))continue;
+  const base=body?(.3+.35*fb[i])*bal[i]:(Math.sin(PI*clamp(fr[i]/NR,0,1))*.4+.25);
+  const a=(st[i]===1?.9:base)+heat[i]*.4;const s=clamp(FOV*(body?.03:.05)/PD,1,7)*(.6+fb[i]*.8)*(1+heat[i]*.6);ctx.globalAlpha=Math.min(1,a);
+  const hot=heat[i]>.35;if(s<2.2&&!hot){ctx.fillRect(PX-s/2,PY-s/2,s,s)}else ctx.drawImage(hot?sprM:sprW,PX-s,PY-s,s*2,s*2)}
+ if(body)drawFigures();else{drawCollapse();drawHandles()}
+ drawHands();
+ for(const p of sparks){if(!pr(p.x,p.y,p.z))continue;ctx.globalAlpha=.6*(1-p.life);const s=clamp(FOV*.04/PD,1.5,5);ctx.drawImage(sprM,PX-s,PY-s,s*2,s*2)}
+ ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';
+}
+function renderTensile(){
+ for(let i=0;i<N;i++){const o=i*3;OK[i]=pr(D[o],D[o+1],D[o+2])?1:0;SX[i]=PX;SY[i]=PY}
+ if(S.ref){ctx.fillStyle='#fff';ctx.globalAlpha=.07;for(let i=0;i<N;i+=2){const o=i*3;if(pr(D[o],D[o+1],-D[o+2]))ctx.fillRect(PX,PY,1.2,1.2)}}
+ let hs=0,rs=0;const hl=new Float32Array(N),rl=new Float32Array(N);
+ for(let r=0;r<=NR;r++)for(let s=0;s<NS;s++){const i=r*NS+s,j=r*NS+(s+1)%NS,a=i*3,b=j*3;hl[i]=Math.hypot(P[a]-P[b],P[a+1]-P[b+1],P[a+2]-P[b+2]);hs+=hl[i];if(r<NR){const c=(i+NS)*3;rl[i]=Math.hypot(P[a]-P[c],P[a+1]-P[c+1],P[a+2]-P[c+2]);rs+=rl[i]}}
+ const hm=hs/((NR+1)*NS),rm=rs/(NR*NS),bk=[[],[],[]];
+ for(let r=0;r<=NR;r++)for(let s=0;s<NS;s++){const i=r*NS+s,j=r*NS+(s+1)%NS;if(r<NR&&OK[i]&&OK[j]){const q=hl[i]/hm*(1-r/NR*.5);bk[q>1.25?2:q>.8?1:0].push(i,j)}if(r<NR){const k=i+NS;if(OK[i]&&OK[k]){const q=rl[i]/rm;bk[q>1.25?2:q>.8?1:0].push(i,k)}}}
+ ctx.strokeStyle='#fff';ctx.lineWidth=.6;
+ [.05,.1,.2].forEach((al,b)=>{const A=bk[b];ctx.globalAlpha=al;ctx.beginPath();for(let q=0;q<A.length;q+=2){const i=A[q],j=A[q+1];if(U[i]<.85||U[j]<.85)continue;ctx.moveTo(SX[i],SY[i]);ctx.lineTo(SX[j],SY[j])}ctx.stroke()});
+ ctx.lineWidth=1.3;ctx.globalAlpha=.6;ctx.beginPath();for(let s=0;s<NS;s++){const i=NR*NS+s,j=NR*NS+(s+1)%NS;if(OK[i]&&OK[j]&&U[i]>.9&&U[j]>.9){ctx.moveTo(SX[i],SY[i]);ctx.lineTo(SX[j],SY[j])}}ctx.stroke();
+ if(center.on){ctx.strokeStyle=center.remove?'#ff5a5a':MAG;ctx.lineWidth=2;ctx.globalAlpha=.85;ctx.beginPath();for(let s=0;s<NS;s++){const j=(s+1)%NS;if(OK[s]&&OK[j]&&U[s]>.9&&U[j]>.9){ctx.moveTo(SX[s],SY[s]);ctx.lineTo(SX[j],SY[j])}}ctx.stroke();ctx.strokeStyle='#fff'}
+ const el=elements();let masts=0;
+ for(const m of el){if(m.t==='cable'){ctx.setLineDash([2,6]);ctx.globalAlpha=phase==='EQ'?.3:.12;ctx.lineWidth=.8;ctx.beginPath();line3(m.a,m.b);ctx.stroke();ctx.setLineDash([]);continue}
+  masts++;ctx.globalAlpha=.45;ctx.lineWidth=1.6;ctx.beginPath();line3(m.a,m.b);ctx.stroke();
+  for(let q=0;q<4;q++){const t=(T*.35+q/4)%1,p=l3(m.a,m.b,t);if(pr(p[0],p[1],p[2])){ctx.globalAlpha=.8*Math.sin(PI*t);const s=Math.max(3,FOV*.12/PD);ctx.drawImage(sprW,PX-s,PY-s,s*2,s*2)}}}
+ lastMasts=masts;
+ ctx.fillStyle='#fff';for(let i=0;i<N;i++){if(!OK[i])continue;const r=Math.floor(i/NS);ctx.globalAlpha=(r===NR?.75:.36)*(phase==='COLLAPSE'?1:Math.max(.25,U[i]));const s=r===NR?1.7:1.2;ctx.fillRect(SX[i]-s/2,SY[i]-s/2,s,s)}
+}
+function drawCollapse(){
+ if(phase==='COLLAPSE'||(phase==='MORPH'&&curPh==='EMIT'&&MT<.6)){const k=phase==='COLLAPSE'?ease(clamp(tc,0,1)):1-MT/.6;if(pr(sing[0],sing[1],sing[2])){const sx=PX,sy=PY,sd=PD;
+   ctx.strokeStyle=MAG;ctx.globalAlpha=.1*k;ctx.lineWidth=.6;ctx.beginPath();for(let i=0;i<N;i+=3)if(OK[i]){ctx.moveTo(sx,sy);ctx.lineTo(SX[i],SY[i])}ctx.stroke();
+   const g=FOV*(.5+k*1.5)/sd;ctx.globalAlpha=.7*k;ctx.drawImage(sprM,sx-g,sy-g,g*2,g*2);
+   const rh=FOV*.25*k/sd;ctx.globalCompositeOperation='source-over';ctx.globalAlpha=k;ctx.fillStyle='#000';ctx.beginPath();ctx.arc(sx,sy,rh,0,7);ctx.fill();
+   ctx.globalCompositeOperation='lighter';ctx.strokeStyle='#fff';ctx.lineWidth=1.4;ctx.globalAlpha=.9*k;ctx.beginPath();ctx.arc(sx,sy,rh*1.05,0,7);ctx.stroke()}}}
+function drawFigures(){
+ // trail spine
+ if((BD.m==='WALK'||BD.m==='RUN')&&BD.trail.length>2){ctx.strokeStyle=MAG;ctx.lineWidth=1;ctx.globalAlpha=.35;ctx.beginPath();let f=true;for(const p of BD.trail){if(!pr(p[0],p[1],.01)){f=true;continue}f?ctx.moveTo(PX,PY):ctx.lineTo(PX,PY);f=false}ctx.stroke()}
+ for(const fg of BD.figs){const L=fg.L;
+  if(fg.stool){const c=L[J.pel],w=.2;ctx.strokeStyle='#fff';ctx.globalAlpha=.35;ctx.lineWidth=1;ctx.beginPath();const pts=[[-w,-w],[w,-w],[w,w],[-w,w]].map(q=>[c[0]+q[0],c[1]+q[1]]);
+   for(let k=0;k<4;k++){const a=pts[k],b=pts[(k+1)%4];line3([a[0],a[1],.46],[b[0],b[1],.46]);line3([a[0],a[1],0],[b[0],b[1],0]);line3([a[0],a[1],0],[a[0],a[1],.46])}ctx.stroke()}
+  ctx.strokeStyle='#fff';ctx.lineCap='round';
+  for(const[w,al]of[[4,.12],[1.6,.9]]){ctx.globalAlpha=al;ctx.lineWidth=w;ctx.beginPath();for(const[a,b]of BONES)line3(L[a],L[b]);ctx.stroke()}
+  ctx.lineCap='butt';
+  if(pr(L[0][0],L[0][1],L[0][2])){const r=Math.max(2,FOV*.1/PD);ctx.globalAlpha=.9;ctx.lineWidth=1.6;ctx.beginPath();ctx.arc(PX,PY,r,0,7);ctx.stroke()}
+  for(const j of[J.wrL,J.wrR,J.anL,J.anR,J.pel]){const p=L[j];if(pr(p[0],p[1],p[2])){const s=Math.max(4,FOV*.16/PD);ctx.globalAlpha=.7;ctx.drawImage(sprM,PX-s,PY-s,s*2,s*2)}}}
+}
+function drawHandles(){
+ ctx.lineWidth=1.2;
+ for(const a of anchors){if(!pr(a.p[0],a.p[1],a.p[2]))continue;const r=6+a.hot*5;ctx.strokeStyle=a.del?'#ff5a5a':a.hot?MAG:'#fff';ctx.globalAlpha=a.hot?1:.55;ctx.beginPath();ctx.arc(PX,PY,r,0,7);ctx.stroke();
+  if(a.delT>0&&!a.del){ctx.strokeStyle='#ff5a5a';ctx.beginPath();ctx.arc(PX,PY,r+5,-PI/2,-PI/2+2*PI*clamp(a.delT/ST().edge,0,1));ctx.stroke()}
+  if(a.del){ctx.beginPath();ctx.moveTo(PX-r,PY-r);ctx.lineTo(PX+r,PY+r);ctx.moveTo(PX+r,PY-r);ctx.lineTo(PX-r,PY+r);ctx.stroke()}
+  if(a.hot){const s=r*3;ctx.globalAlpha=.6;ctx.drawImage(a.del?sprR:sprM,PX-s,PY-s,s*2,s*2);ctx.font='10px monospace';ctx.fillStyle='#fff';ctx.globalAlpha=.9;ctx.fillText((a.p[2]>1.4?'MAST ':'ANCHOR ')+a.p[2].toFixed(1)+' m',PX+r+6,PY-r)}}
+ if(center.on&&pr(center.x,center.y,center.cz)){const hot=hands.some(h=>h.grab==='center'||h.mode==='center2')||mouse.grab==='center';ctx.strokeStyle=center.remove?'#ff5a5a':MAG;ctx.globalAlpha=hot?1:.6;ctx.beginPath();ctx.rect(PX-5,PY-5,10,10);ctx.stroke();
+  if(hot){ctx.font='10px monospace';ctx.fillStyle='#fff';ctx.fillText(center.remove?'RELEASE → REMOVE CENTRE':centerMode().toUpperCase()+' '+center.cz.toFixed(1)+' m · r '+center.rc.toFixed(1),PX+12,PY-8)}}
+}
+function drawHands(){
+ const K=ST();
+ for(const h of hands){if(!h.present||!h.w)continue;
+  ctx.strokeStyle='#fff';ctx.globalAlpha=.4;ctx.lineWidth=1.2;ctx.beginPath();for(const[a,b]of HC)line3(h.w[a],h.w[b]);ctx.stroke();
+  ctx.fillStyle='#fff';ctx.globalAlpha=.6;for(const p of h.w){if(pr(p[0],p[1],p[2]))ctx.fillRect(PX-1,PY-1,2,2)}
+  if(h.fist){if(pr(h.palm[0],h.palm[1],h.palm[2])){const g=FOV*(.6+Math.min(2,h.cap/300))*(MODE==='BODY'?.5:1)/PD;ctx.globalAlpha=.8;ctx.drawImage(sprM,PX-g,PY-g,g*2,g*2)}}
+  else for(const t of h.tips){if(!pr(t[0],t[1],t[2]))continue;const s=Math.max(6,FOV*.3*(MODE==='BODY'?.5:1)/PD);ctx.globalAlpha=h.pinch?.4:.85;ctx.drawImage(sprM,PX-s,PY-s,s*2,s*2)}
+  if(h.open&&pr(h.palm[0],h.palm[1],h.palm[2])){ctx.globalAlpha=.12;ctx.strokeStyle=MAG;ctx.lineWidth=1;ctx.setLineDash([3,5]);ctx.beginPath();ctx.arc(PX,PY,FOV*S.reach*(MODE==='BODY'?.5:1)/PD,0,7);ctx.stroke();ctx.setLineDash([])}
+  if(MODE==='TENSILE'&&h.pinch&&pr(h.pinchPt[0],h.pinchPt[1],h.pinchPt[2])){ctx.strokeStyle=MAG;ctx.lineWidth=1.6;ctx.globalAlpha=1;
+   if(h.mode==='pending'){ctx.beginPath();ctx.arc(PX,PY,16,-PI/2,-PI/2+2*PI*clamp(h.pt/(h.cand?K.grab:K.place),0,1));ctx.stroke()}
+   else{ctx.beginPath();ctx.arc(PX,PY,10,0,7);ctx.stroke()}}}
+ const o0=hands[0],o1=hands[1];
+ if(o0.mode==='center2'&&o1.mode==='center2'){ctx.strokeStyle=MAG;ctx.globalAlpha=.6;ctx.setLineDash([4,4]);ctx.beginPath();line3(o0.pinchPt,o1.pinchPt);line3(l3(o0.pinchPt,o1.pinchPt,.5),[center.x,center.y,center.cz]);ctx.stroke();ctx.setLineDash([])}
+ if(fistsT>0&&MODE==='TENSILE'){const m=l3(o0.palm,o1.palm,.5);if(pr(m[0],m[1],m[2])){ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.globalAlpha=1;ctx.beginPath();ctx.arc(PX,PY,26,-PI/2,-PI/2+2*PI*clamp(fistsT/K.fists,0,1));ctx.stroke()}}
+ if(mouse.world&&pr(mouse.world[0],mouse.world[1],mouse.world[2])){const s=Math.max(6,FOV*.3*(MODE==='BODY'?.5:1)/PD);ctx.globalAlpha=.7;ctx.drawImage(sprM,PX-s,PY-s,s*2,s*2)}
+}
+
+/* ---------- stats ---------- */
+function stats(){
+ if(MODE==='BODY'){let h=0,cx=0,cy=0,n=0;const nf=Math.min(MAXF,S.flow);for(let i=0;i<nf;i++){if(dust[i]<S.dust)continue;h=Math.max(h,btz[i]);cx+=btx[i];cy+=bty[i];n++}cx/=n||1;cy/=n||1;
+  let minx=1e9,maxx=-1e9,miny=1e9,maxy=-1e9;for(let i=0;i<nf;i++){if(dust[i]<S.dust)continue;minx=Math.min(minx,btx[i]);maxx=Math.max(maxx,btx[i]);miny=Math.min(miny,bty[i]);maxy=Math.max(maxy,bty[i])}
+  const fp=BD.m==='WALK'||BD.m==='RUN'?(()=>{let L=0;for(let k=1;k<BD.trail.length;k++)L+=Math.hypot(BD.trail[k][0]-BD.trail[k-1][0],BD.trail[k][1]-BD.trail[k-1][1]);return L*(BD.m==='WALK'?2.3:1.4)*S.zone})():(maxx-minx)*(maxy-miny)*.78;
+  $('bsT').textContent=BINFO[BD.m][0].split(' ')[0].toUpperCase();$('bsH').textContent=h.toFixed(1)+' m';$('bsF').textContent=fp.toFixed(1)+' m²';$('bsV').textContent=BD.speed.toFixed(1)+' m/s';return}
+ let area=0,h=0;
+ for(let r=0;r<NR;r++)for(let s=0;s<NS;s++){const a=(r*NS+s)*3,b=(r*NS+(s+1)%NS)*3,c=b+NS*3,d=a+NS*3;const v=o=>[P[o],P[o+1],P[o+2]];const A=v(a),B=v(b),C=v(c),Dd=v(d);area+=len(cross(sub(B,A),sub(C,A)))/2+len(cross(sub(C,A),sub(Dd,A)))/2}
+ for(let i=0;i<N;i++)h=Math.max(h,P[i*3+2]);
+ $('stP').textContent=anchors.length;$('stK').textContent=lastMasts;$('stA').textContent=area.toFixed(0)+' m²';$('stH').textContent=h.toFixed(1)+' m';$('stHd').textContent=hands.filter(h=>h.present).length;$('stL').textContent=heldCount;
+ const m=centerMode();document.querySelectorAll('#cmodes .btn').forEach(b=>b.classList.toggle('on',(b.dataset.c==='none'&&m==='free')||b.dataset.c===m))}
+
+/* ---------- controls ---------- */
+$('tabT').onclick=()=>setMode('TENSILE');$('tabB').onclick=()=>setMode('BODY');
+$('camBtn').onclick=()=>CAM.on?stopCamera():startCamera();
+document.querySelectorAll('#seeds .btn').forEach(b=>b.onclick=()=>collapse([0,OY,5],b.dataset.s));
+document.querySelectorAll('#cmodes .btn').forEach(b=>b.onclick=()=>setCenter(b.dataset.c));
+document.querySelectorAll('.mv').forEach(b=>b.onclick=()=>setBodyMove(b.dataset.m));
+$('tCycle').onclick=()=>{BD.cycle=!BD.cycle;BD.cycT=0;$('tCycle').classList.toggle('on',BD.cycle)};
+const bind=(id,out,key,fmt,map)=>{const el=$(id);el.oninput=()=>{S[key]=map?map(+el.value):+el.value;$(out).textContent=fmt(+el.value)}};
+bind('sStab','oStab','stab',v=>['LOW','MEDIUM','HIGH'][v-1]);
+bind('sPull','oPull','pull',v=>v.toFixed(1));bind('sReach','oReach','reach',v=>v.toFixed(1)+' m');bind('sEdge','oEdge','edge',v=>v.toFixed(1));bind('sFlow','oFlow','flow',v=>v);bind('sTrail','oTrail','trail',v=>v.toFixed(2));
+bind('sZone','oZone','zone',v=>v.toFixed(2)+'×');bind('sDrift','oDrift','drift',v=>v.toFixed(1)+'×');bind('sDust','oDust','dust',v=>v+'%',v=>v/100);
+const tog=(id,key)=>{$(id).onclick=()=>{S[key]=!S[key];$(id).classList.toggle('on',S[key])}};tog('tRel','rel');tog('tRef','ref');tog('tOrbit','orbit');
+function setView(v){$('vPersp').classList.toggle('on',v==='P');$('vElev').classList.toggle('on',v==='E');$('vPlan').classList.toggle('on',v==='T')}
+$('vPersp').onclick=()=>{V.gp=VIEWS[MODE].p;setView('P')};
+$('vElev').onclick=()=>{V.gp=.03;V.gy=Math.round(V.yaw/(2*PI))*2*PI;S.orbit=false;$('tOrbit').classList.remove('on');setView('E')};
+$('vPlan').onclick=()=>{V.gp=1.5;S.orbit=false;$('tOrbit').classList.remove('on');setView('T')};
+$('export').onclick=()=>{let s='# Hand Tensile (Y-up, metres)\no membrane\n';for(let i=0;i<N;i++)s+=`v ${P[i*3].toFixed(4)} ${P[i*3+2].toFixed(4)} ${(-P[i*3+1]).toFixed(4)}\n`;
+ for(let r=0;r<NR;r++)for(let q=0;q<NS;q++){const a=r*NS+q,b=r*NS+(q+1)%NS;s+=`f ${a+1} ${b+1} ${b+NS+1} ${a+NS+1}\n`}let off=N+1;s+='o structure\n';
+ for(const e of elements()){s+=`v ${e.a[0].toFixed(4)} ${e.a[2].toFixed(4)} ${(-e.a[1]).toFixed(4)}\nv ${e.b[0].toFixed(4)} ${e.b[2].toFixed(4)} ${(-e.b[1]).toFixed(4)}\nl ${off} ${off+1}\n`;off+=2}
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([s],{type:'text/plain'}));a.download='hand_tensile.obj';document.body.appendChild(a);a.click();a.remove()};
+$('fold').onclick=()=>{const p=$('panel');p.classList.toggle('folded');$('fold').textContent=p.classList.contains('folded')?'+':'–'};
+if(innerWidth<=760){$('panel').classList.add('folded');$('fold').textContent='+'}
+addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;if(e.key==='c'||e.key==='C')CAM.on?stopCamera():startCamera();
+ if(MODE==='BODY'){const n=+e.key;if(n>=1&&n<=6)setBodyMove(CYC[n-1])}});
+
+/* =====================================================================
+   WEBXR BRIDGE — actual stereo 3D view of the original simulation state.
+   Original particle simulation & MediaPipe gesture engine are unchanged.
+   Coordinate conversion from source (X,Y,Z-up) to Three (X,Z,-Y).
+   ===================================================================== */
+const XR = {
+  active:false, immersive:false, THREE:null, scene:null, renderer:null, camera:null,
+  rig:null, world:null, stage:null, points:null, membrane:null, outline:null,
+  bodies:null, anchors:null, scale:'human', walk:false, session:null,
+  motion:'STOP', handForces:[], xrHands:[], handMeshes:[], handsVisible:false,
+  nativeStates:[{gesture:null},{gesture:null}], deskStates:[{gesture:null},{gesture:null}],
+  keys:new Set(), drag:null, pitch:0, prev:0, shape:'', lastHUD:'', hud:null
+};
+const XR_BUTTONS = {
+  walk:$('xrWalk'),vr:$('xrEnter'),reset:$('xrReset'),human:$('xrHuman'),model:$('xrModel'),
+  status:$('xrStatus')
+};
+const XR_GESTURES = [
+  {key:'WALK',tip:'index-finger-tip',index:8},
+  {key:'RIGHT',tip:'pinky-finger-tip',index:20},
+  {key:'LEFT',tip:'ring-finger-tip',index:16}
+];
+const XR_ON = .35, XR_OFF = .52;
+function xrStatus(s){XR_BUTTONS.status.textContent=s}
+function xrChoice(values,state){
+  // values are thumb-to-tip distances divided by a hand-scale reference
+  // Only one operation per hand. Hysteresis avoids jitter near threshold.
+  const sorted=XR_GESTURES.map(g=>({key:g.key,d:values[g.key]??Infinity})).sort((a,b)=>a.d-b.d);
+  const best=sorted[0];
+  let current=state.gesture;
+  if(current){
+    const d=values[current]??Infinity;
+    if(d>XR_OFF || (best.key!==current && best.d<XR_ON*.8 && best.d<d*.72))current=null;
+  }
+  if(!current && best.d<XR_ON) current=best.key;
+  state.gesture=current;
+  return current;
+}
+function xrMerged(gestures){
+  // A turn takes priority if a different hand is also walking.
+  if(gestures.includes('LEFT')&&gestures.includes('RIGHT'))return 'STOP';
+  if(gestures.includes('RIGHT'))return 'RIGHT';
+  if(gestures.includes('LEFT'))return 'LEFT';
+  if(gestures.includes('WALK'))return 'WALK';
+  return 'STOP';
+}
+function xrConvert(x,y,z,target,at=0){target[at]=x;target[at+1]=z;target[at+2]=-y}
+async function xrSetup(){
+ if(XR.renderer)return true;
+ xrStatus('Loading 3D engine…');
+ try{
+  const THREE=await import('https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js');
+  XR.THREE=THREE;
+  const renderer=new THREE.WebGLRenderer({canvas:$('xrCanvas'),antialias:false,alpha:false,powerPreference:'high-performance'});
+  renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.3));
+  renderer.setSize(innerWidth,innerHeight);
+  renderer.setClearColor(0x030207,1);
+  renderer.xr.enabled=true;
+  renderer.xr.setReferenceSpaceType('local-floor');
+  renderer.xr.setFramebufferScaleFactor(.85);
+  XR.renderer=renderer;
+  const scene=new THREE.Scene();scene.background=new THREE.Color(0x030207);scene.fog=new THREE.FogExp2(0x030207,.008);XR.scene=scene;
+  const camera=new THREE.PerspectiveCamera(70,innerWidth/innerHeight,.015,160);XR.camera=camera;
+  const rig=new THREE.Group();rig.add(camera);scene.add(rig);XR.rig=rig;
+  const world=new THREE.Group();scene.add(world);XR.world=world;
+  world.add(new THREE.GridHelper(48,48,0x3b2341,0x221a2a));
+  const floor=new THREE.Mesh(new THREE.PlaneGeometry(60,60),new THREE.MeshBasicMaterial({color:0x090710,side:THREE.DoubleSide}));
+  floor.rotation.x=-Math.PI/2;floor.position.y=-.018;world.add(floor);
+  const dustCanvas=document.createElement('canvas');dustCanvas.width=dustCanvas.height=64;
+  const dc=dustCanvas.getContext('2d');const grad=dc.createRadialGradient(32,32,1,32,32,31);
+  grad.addColorStop(0,'rgba(255,255,255,1)');grad.addColorStop(.18,'rgba(255,255,255,.82)');grad.addColorStop(.48,'rgba(255,255,255,.2)');grad.addColorStop(1,'rgba(255,255,255,0)');
+  dc.fillStyle=grad;dc.fillRect(0,0,64,64);
+  const texture=new THREE.CanvasTexture(dustCanvas);
+  const particleGeom=new THREE.BufferGeometry(),pXYZ=new Float32Array(MAXF*3),pRGB=new Float32Array(MAXF*3);
+  particleGeom.setAttribute('position',new THREE.BufferAttribute(pXYZ,3).setUsage(THREE.DynamicDrawUsage));
+  particleGeom.setAttribute('color',new THREE.BufferAttribute(pRGB,3).setUsage(THREE.DynamicDrawUsage));
+  const particleMat=new THREE.PointsMaterial({size:.16,map:texture,transparent:true,opacity:.9,vertexColors:true,depthWrite:false,blending:THREE.AdditiveBlending,sizeAttenuation:true});
+  XR.points=new THREE.Points(particleGeom,particleMat);world.add(XR.points);
+  XR.pointXYZ=pXYZ;XR.pointRGB=pRGB;
+  const maxMemLines=((NR+1)*MAXNS+NR*MAXNS)*2;
+  XR.memXYZ=new Float32Array(maxMemLines*3);
+  const mg=new THREE.BufferGeometry();mg.setAttribute('position',new THREE.BufferAttribute(XR.memXYZ,3).setUsage(THREE.DynamicDrawUsage));
+  XR.membrane=new THREE.LineSegments(mg,new THREE.LineBasicMaterial({color:0x9fc2dd,transparent:true,opacity:.21,depthWrite:false}));world.add(XR.membrane);
+  XR.edgeXYZ=new Float32Array(MAXNS*2*3);
+  const eg=new THREE.BufferGeometry();eg.setAttribute('position',new THREE.BufferAttribute(XR.edgeXYZ,3).setUsage(THREE.DynamicDrawUsage));
+  XR.outline=new THREE.LineSegments(eg,new THREE.LineBasicMaterial({color:0xf7d4f6,transparent:true,opacity:.75}));world.add(XR.outline);
+  const maxBones=100;
+  XR.bodyXYZ=new Float32Array(maxBones*2*3);
+  const bg=new THREE.BufferGeometry();bg.setAttribute('position',new THREE.BufferAttribute(XR.bodyXYZ,3).setUsage(THREE.DynamicDrawUsage));
+  XR.bodies=new THREE.LineSegments(bg,new THREE.LineBasicMaterial({color:0xff73b9,transparent:true,opacity:.9}));world.add(XR.bodies);
+  const anchorGeo=new THREE.SphereGeometry(.095,8,6),anchorMat=new THREE.MeshBasicMaterial({color:0xff5fb1});
+  XR.anchors=[];for(let i=0;i<MAXA+1;i++){const s=new THREE.Mesh(anchorGeo,anchorMat);s.visible=false;world.add(s);XR.anchors.push(s)}
+  XR.stage=new THREE.Group();scene.add(XR.stage);
+  const tableMat=new THREE.MeshBasicMaterial({color:0x101019});
+  const table=new THREE.Mesh(new THREE.BoxGeometry(1.0,.075,1.0),tableMat);table.position.y=1.175;XR.stage.add(table);
+  const rim=new THREE.LineSegments(new THREE.EdgesGeometry(table.geometry),new THREE.LineBasicMaterial({color:0xd10072,transparent:true,opacity:.85}));rim.position.copy(table.position);XR.stage.add(rim);
+  const leg=new THREE.Mesh(new THREE.CylinderGeometry(.045,.075,.75,10),tableMat);leg.position.y=.76;XR.stage.add(leg);
+  XR.handMeshes=[];for(let h=0;h<2;h++){
+   const mh=[];for(let j=0;j<5;j++){
+    const mat=new THREE.MeshBasicMaterial({color:h?0x50dfff:0xff65bc,transparent:true,opacity:.9});
+    const mesh=new THREE.Mesh(new THREE.SphereGeometry(.012,8,6),mat);
+    mesh.visible=false;rig.add(mesh);mh.push(mesh);
+   }XR.handMeshes.push(mh)
+  }
+  const labelCanvas=document.createElement('canvas');labelCanvas.width=1024;labelCanvas.height=160;XR.hudCanvas=labelCanvas;
+  const hud=new THREE.Mesh(new THREE.PlaneGeometry(.85,.132),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(labelCanvas),transparent:true,depthTest:false,depthWrite:false}));
+  hud.position.set(0,1.19,-1.12);rig.add(hud);XR.hud=hud;
+  XR.renderer.setAnimationLoop(xrLoop);
+  XR.renderer.setAnimationLoop(null);
+  xrScale();xrReset();
+  xrStatus('3D ready. WALK or ENTER VR.');
+  return true;
+ }catch(e){console.error('WebXR 3D setup error',e);xrStatus('Could not load 3D: '+(e.message||e));return false}
+}
+function xrScale(){
+ XR_BUTTONS.human.classList.toggle('on',XR.scale==='human');XR_BUTTONS.model.classList.toggle('on',XR.scale==='model');
+ if(!XR.world)return;
+ const tabletop=XR.scale==='model';
+ XR.world.scale.setScalar(tabletop?1/70:1);
+ XR.world.position.set(0,tabletop?1.27:0,tabletop?-.83:0);
+ XR.stage.visible=tabletop;
+ XR.world.updateWorldMatrix(true,true);
+}
+function xrReset(){
+ if(!XR.rig)return;
+ XR.rig.position.set(0,0,XR.scale==='model'?.54:MODE==='BODY'?6.2:14);
+ XR.rig.rotation.y=0;
+ XR.pitch=0;
+ if(!XR.immersive){XR.camera.position.set(0,1.62,0);XR.camera.rotation.set(0,0,0)}
+ XR.motion='STOP';XR.nativeStates.forEach(s=>s.gesture=null);XR.deskStates.forEach(s=>s.gesture=null);
+}
+function xrSetScale(s){if(XR.scale===s)return;XR.scale=s;xrScale();xrReset()}
+function xrRunLoop(){XR.prev=0;XR.active=true;$('xrCanvas').style.display='block';document.body.classList.add('xr-3d');
+ XR.renderer.setAnimationLoop(xrLoop)}
+function xrStopLoop(){XR.active=false;XR.immersive=false;XR.motion='STOP';XR.renderer.setAnimationLoop(null);$('xrCanvas').style.display='none';document.body.classList.remove('xr-3d');XR_BUTTONS.walk.textContent='3D WALK';xrStatus('2D prototype. Click 3D WALK or ENTER VR.')}
+async function xrWalkToggle(){
+ if(XR.immersive)return;
+ if(XR.active){xrStopLoop();return}
+ if(!await xrSetup())return;
+ XR.walk=true;XR.camera.position.set(0,1.62,0);xrReset();xrRunLoop();XR_BUTTONS.walk.textContent='EXIT 3D';
+ xrStatus('WASD / arrow keys: move · drag: look · START CAMERA for pinch walk')
+}
+async function xrEnter(){
+ if(XR.immersive)return;
+ if(!navigator.xr){xrStatus('WebXR not available here. Use Meta Quest Browser over HTTPS.');return}
+ // Do NOT await isSessionSupported() here: immersive session requests must be
+ // initiated by the real ENTER VR click, with transient user activation intact.
+ // Load all dependencies BEFORE requesting session, but requestSession must still
+ // come from a direct user gesture on supported platforms. xrSetup uses import;
+ // preload on page load to avoid loss of user activation during the import.
+ if(!XR.renderer){xrStatus('3D engine loading — press ENTER VR again.');await xrSetup();return}
+ if(CAM.on)stopCamera(); // desktop webcam must not compete with native XR hands
+ const wasWalk=XR.active;
+ try{
+  const session=await navigator.xr.requestSession('immersive-vr',{optionalFeatures:['local-floor','hand-tracking']});
+  XR.session=session;XR.immersive=true;XR.wasWalk=wasWalk;
+  XR.renderer.xr.setReferenceSpaceType('local-floor');
+  session.addEventListener('end',()=>{
+   XR.session=null;XR.immersive=false;XR.handForces=[];
+   for(const grp of XR.handMeshes)for(const mesh of grp)mesh.visible=false;
+   if(!XR.wasWalk)xrStopLoop();else {XR.camera.position.set(0,1.62,0);XR_BUTTONS.walk.textContent='EXIT 3D';XR.prev=0;xrStatus('Returned to 3D WALK')}
+  },{once:true});
+  await XR.renderer.xr.setSession(session);
+  xrReset();
+  // Quest WebXR will overwrite camera pose using the headset's tracked head;
+  // only the rig moves. This preserves natural physical head movement.
+  XR.active=true;$('xrCanvas').style.display='block';document.body.classList.add('xr-3d');XR.prev=0;
+  XR.renderer.setAnimationLoop(xrLoop);
+  xrStatus('VR running · index=forward · pinky=right · ring=left');
+ }catch(e){
+  console.error('XR session start failed',e);xrStatus('VR could not start: '+(e.message||e));XR.immersive=false;
+  if(XR.session){try{await XR.session.end()}catch(_){}XR.session=null}
+ }
+}
+function xrDesktopGestures(){
+ const a=[];
+ if(!CAM.on)return 'STOP';
+ for(let i=0;i<2;i++){
+  const h=hands[i],st=XR.deskStates[i];
+  if(!h.present||h.lost>.22||!h.lm){st.gesture=null;continue}
+  const l=h.lm,scale=d2(l[0],l[9])||.1;
+  const vals={WALK:d2(l[4],l[8])/scale,RIGHT:d2(l[4],l[20])/scale,LEFT:d2(l[4],l[16])/scale};
+  const gesture=xrChoice(vals,st);if(gesture)a.push(gesture);
+ }
+ return xrMerged(a);
+}
+const XR_JOINTS=['wrist','thumb-tip','index-finger-tip','ring-finger-tip','pinky-finger-tip'];
+function xrNativeGestures(frame){
+ const THREE=XR.THREE;
+ XR.handForces=[];if(!frame||!XR.session||!XR.renderer)return 'STOP';
+ const space=XR.renderer.xr.getReferenceSpace();if(!space)return 'STOP';
+ const found=[];let count=0;
+ XR.rig.updateWorldMatrix(true,false);
+ XR.world.updateWorldMatrix(true,false);
+ for(const input of XR.session.inputSources){if(!input.hand)continue;
+  const idx=count++;if(idx>1)break;
+  const joints={};
+  for(const name of [...XR_JOINTS,'middle-finger-metacarpal']){
+   try{const joint=input.hand.get(name);if(joint){const pose=frame.getJointPose(joint,space);if(pose)joints[name]=pose.transform.position}}catch(_){}
+  }
+  const wrist=joints.wrist,thumb=joints['thumb-tip'],index=joints['index-finger-tip'],ring=joints['ring-finger-tip'],pinky=joints['pinky-finger-tip'];
+  if(!wrist||!thumb||!index||!ring||!pinky){XR.nativeStates[idx].gesture=null;for(const marker of XR.handMeshes[idx])marker.visible=false;continue}
+  // Wrist-to-middle-metacarpal reference changes with each hand's size.
+  const middle=joints['middle-finger-metacarpal'];
+  const ds=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z);
+  const ref=Math.max(.055,middle?ds(wrist,middle):ds(wrist,index)*.6);
+  const vals={WALK:ds(thumb,index)/ref,RIGHT:ds(thumb,pinky)/ref,LEFT:ds(thumb,ring)/ref};
+  const gesture=xrChoice(vals,XR.nativeStates[idx]);if(gesture)found.push(gesture);
+  const poses=[wrist,thumb,index,ring,pinky];
+  poses.forEach((p,j)=>{const marker=XR.handMeshes[idx][j];marker.visible=true;marker.position.set(p.x,p.y,p.z)});
+  // Non-pinching fingertips exert the same light-field force as the original
+  // desktop demo; convert tracked hand positions into its Z-up source space.
+  for(const p of [index,ring,pinky]){
+    const local=new THREE.Vector3(p.x,p.y,p.z);
+    const worldP=XR.rig.localToWorld(local);
+    const modelP=XR.world.worldToLocal(worldP);
+    XR.handForces.push({p:[modelP.x,-modelP.z,modelP.y],type:'tip',w:.7});
+  }
+ }
+ for(let idx=count;idx<2;idx++){
+  XR.nativeStates[idx].gesture=null;
+  for(const marker of XR.handMeshes[idx])marker.visible=false;
+ }
+ XR.handsVisible=count>0;
+ return xrMerged(found);
+}
+function xrMove(dt){
+ const TH=XR.THREE,move=new TH.Vector3();
+ if(!XR.immersive){
+  const keys=XR.keys;
+  const forwards=(keys.has('KeyW')||keys.has('ArrowUp')?1:0)-(keys.has('KeyS')||keys.has('ArrowDown')?1:0);
+  const sideways=(keys.has('KeyD')?1:0)-(keys.has('KeyA')?1:0);
+  if(keys.has('ArrowLeft'))XR.rig.rotation.y+=dt*1.05;
+  if(keys.has('ArrowRight'))XR.rig.rotation.y-=dt*1.05;
+  if(forwards||sideways){
+   XR.camera.getWorldDirection(move);move.y=0;move.normalize();
+   const right=new TH.Vector3().crossVectors(move,new TH.Vector3(0,1,0)).normalize();
+   const speed=XR.scale==='model'?.16:(keys.has('ShiftLeft')?4.2:1.6);
+   XR.rig.position.addScaledVector(move,speed*dt*forwards);
+   XR.rig.position.addScaledVector(right,speed*dt*sideways);
+  }
+ }
+ if(XR.motion==='STOP')return;
+ // Rotation occurs around the floor Y-axis, not the headset's pitch.
+ if(XR.motion==='LEFT')XR.rig.rotation.y+=dt*0.85;
+ if(XR.motion==='RIGHT')XR.rig.rotation.y-=dt*0.85;
+ if(XR.motion==='WALK'){
+  const dir=new TH.Vector3();
+  if(XR.immersive){XR.renderer.xr.getCamera(XR.camera).getWorldDirection(dir)}
+  else{XR.camera.getWorldDirection(dir)}
+  dir.y=0;if(dir.lengthSq()<1e-6)return;dir.normalize();
+  XR.rig.position.addScaledVector(dir,dt*(XR.scale==='model'?.12:1.5));
+ }
+}
+function xrUpdate3D(){
+ const TH=XR.THREE;
+ if(!TH)return;
+ const count=Math.min(MAXF,S.flow);
+ const xyz=XR.pointXYZ,rgb=XR.pointRGB;
+ for(let i=0;i<count;i++){
+  const o=i*3;
+  xrConvert(px[i],py[i],pz[i],xyz,o);
+  const t=Math.min(1,heat[i]);
+  const light=(MODE==='BODY'?Math.max(.25,bal[i]):.7);
+  rgb[o]=1*light;rgb[o+1]=(1-.68*t)*light;rgb[o+2]=(1-.30*t)*light;
+ }
+ XR.points.geometry.setDrawRange(0,count);
+ XR.points.geometry.attributes.position.needsUpdate=true;
+ XR.points.geometry.attributes.color.needsUpdate=true;
+ XR.points.material.size=XR.scale==='model'?.16:.13;
+ const tensile=MODE==='TENSILE';
+ XR.membrane.visible=XR.outline.visible=tensile;XR.bodies.visible=!tensile;
+ if(tensile){
+  let at=0,edge=0;
+  for(let r=0;r<=NR;r++)for(let s=0;s<NS;s++){
+   const i=(r*NS+s)*3,j=(r*NS+(s+1)%NS)*3;
+   xrConvert(D[i],D[i+1],D[i+2],XR.memXYZ,at);at+=3;
+   xrConvert(D[j],D[j+1],D[j+2],XR.memXYZ,at);at+=3;
+   if(r===NR){xrConvert(D[i],D[i+1],D[i+2],XR.edgeXYZ,edge);edge+=3;xrConvert(D[j],D[j+1],D[j+2],XR.edgeXYZ,edge);edge+=3}
+   if(r<NR){const k=((r+1)*NS+s)*3;
+    xrConvert(D[i],D[i+1],D[i+2],XR.memXYZ,at);at+=3;
+    xrConvert(D[k],D[k+1],D[k+2],XR.memXYZ,at);at+=3;
+   }
+  }
+  XR.membrane.geometry.setDrawRange(0,at/3);XR.membrane.geometry.attributes.position.needsUpdate=true;
+  XR.outline.geometry.setDrawRange(0,edge/3);XR.outline.geometry.attributes.position.needsUpdate=true;
+  XR.anchors.forEach((m,i)=>{
+   const a=anchors[i];
+   if(a){m.visible=true;m.position.set(a.p[0],a.p[2],-a.p[1])}
+   else if(i===MAXA&&center.on){m.visible=true;m.position.set(center.x,center.cz,-center.y)}
+   else m.visible=false;
+  });
+ }else{
+  for(const mesh of XR.anchors)mesh.visible=false;
+  let pos=0;
+  for(const fig of BD.figs)for(const [a,b] of BONES){
+   if(pos+6>XR.bodyXYZ.length)break;
+   const p=fig.L[a],q=fig.L[b];
+   xrConvert(p[0],p[1],p[2],XR.bodyXYZ,pos);pos+=3;
+   xrConvert(q[0],q[1],q[2],XR.bodyXYZ,pos);pos+=3;
+  }
+  XR.bodies.geometry.setDrawRange(0,pos/3);XR.bodies.geometry.attributes.position.needsUpdate=true;
+ }
+}
+function xrHUD(){
+ if(!XR.hud)return;
+ XR.hud.visible=XR.immersive;
+ if(!XR.immersive)return;
+ const msg='BODIES OF LIGHT   |   '+MODE+'   |   '+(XR.scale==='human'?'HUMAN 1:1':'MODEL 1:70')+'   |   '+(XR.handsVisible?XR.motion:'NO HANDS');
+ if(msg===XR.lastHUD)return;XR.lastHUD=msg;
+ const c=XR.hudCanvas,x=c.getContext('2d');x.clearRect(0,0,c.width,c.height);
+ x.fillStyle='rgba(12,9,18,.68)';x.fillRect(0,0,c.width,c.height);x.strokeStyle='#ff4aa8';x.strokeRect(1,1,c.width-2,c.height-2);
+ x.font='bold 35px monospace';x.textAlign='center';x.fillStyle='#ffffff';x.fillText(msg,512,96);
+ XR.hud.material.map.needsUpdate=true;
+}
+function xrLoop(time,frame){
+ if(!XR.active||!XR.renderer)return;
+ const dt=Math.min(.05,XR.prev?(time-XR.prev)/1000:1/72);XR.prev=time;
+ if(XR.immersive){XR.motion=xrNativeGestures(frame)}else{XR.handForces=[];XR.handsVisible=false}
+ update(dt);
+ XR.statsTime=(XR.statsTime||0)+dt;if(XR.statsTime>.5){XR.statsTime=0;stats()}
+ if(!XR.immersive){XR.motion=xrDesktopGestures()}
+ xrMove(dt);
+ xrUpdate3D();xrHUD();
+ XR.renderer.render(XR.scene,XR.camera);
+}
+window.addEventListener('resize',()=>{if(!XR.renderer)return;XR.renderer.setSize(innerWidth,innerHeight);XR.camera.aspect=innerWidth/innerHeight;XR.camera.updateProjectionMatrix()});
+window.addEventListener('keydown',e=>{
+ if(e.target.closest('input,textarea,select'))return;
+ if(['KeyW','KeyA','KeyS','KeyD','ShiftLeft','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)&&XR.active&&!XR.immersive)e.preventDefault();
+ XR.keys.add(e.code);
+});
+window.addEventListener('keyup',e=>XR.keys.delete(e.code));
+window.addEventListener('blur',()=>XR.keys.clear());
+$('xrCanvas').addEventListener('pointerdown',e=>{if(XR.immersive)return;XR.drag={x:e.clientX,y:e.clientY};$('xrCanvas').setPointerCapture(e.pointerId)});
+$('xrCanvas').addEventListener('pointermove',e=>{
+ if(XR.immersive||!XR.drag)return;
+ const dx=e.clientX-XR.drag.x,dy=e.clientY-XR.drag.y;XR.drag.x=e.clientX;XR.drag.y=e.clientY;
+ XR.rig.rotation.y-=dx*.003;XR.pitch=clamp(XR.pitch-dy*.003,-1.35,1.35);
+ XR.camera.rotation.x=XR.pitch;
+});
+$('xrCanvas').addEventListener('pointerup',()=>{XR.drag=null});
+$('xrCanvas').addEventListener('pointercancel',()=>{XR.drag=null});
+XR_BUTTONS.walk.addEventListener('click',xrWalkToggle);
+XR_BUTTONS.vr.addEventListener('click',xrEnter);
+XR_BUTTONS.reset.addEventListener('click',xrReset);
+XR_BUTTONS.human.addEventListener('click',()=>xrSetScale('human'));
+XR_BUTTONS.model.addEventListener('click',()=>xrSetScale('model'));
+if(!window.isSecureContext)xrStatus('Publish to HTTPS (GitHub Pages) for VR / webcam.');
+else if(!navigator.xr)xrStatus('Desktop preview available · immersive VR needs Quest Browser.');
+else navigator.xr.isSessionSupported('immersive-vr').then(v=>xrStatus(v?'Quest ready. Select a mode and ENTER VR.':'Desktop preview · immersive VR needs Quest Browser.')).catch(()=>{});
+// Proactively load the renderer; Quest requires requesting an immersive session
+// within a fresh click gesture, not after an unpredictable CDN download.
+setTimeout(()=>{xrSetup().catch(e=>console.error(e))},700);
+window.__vrBridge={get state(){return {active:XR.active,immersive:XR.immersive,motion:XR.motion,scale:XR.scale,mode:MODE}},selectGesture:xrChoice,merge:xrMerged};
+
+
+/* ---------- start ---------- */
+basis();loadSeed('CONE');rebuild([0,OY,5]);setPhase('EMIT');
+for(let i=0;i<MAXF;i++){px[i]=0;py[i]=OY;pz[i]=5;vx[i]=(R()-.5)*20;vy[i]=(R()-.5)*20;vz[i]=(R()-.5)*20;st[i]=2;stt[i]=R()*.5}
+updateBody(0);
+let last=performance.now(),stT=0;
+function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;if(!XR.active){update(dt);render();stT+=dt;if(stT>.25){stT=0;stats()}}requestAnimationFrame(frame)}
+requestAnimationFrame(frame);
+addEventListener('message',e=>{const d=e.data||{};if(d.mode==='BODY'||d.mode==='TENSILE')setMode(d.mode);if(d.move&&BINFO[d.move]){if(MODE!=='BODY')setMode('BODY');setBodyMove(d.move)}if(d.panel==='fold'){$('panel').classList.add('folded');$('fold').textContent='+'}});
+window.__hands=v=>{CAM.fake=v};window.__mode=setMode;window.__move=setBodyMove;
+window.__state=()=>({mode:MODE,body:BD.m,anchors:anchors.length,center:center.on,cmode:centerMode(),phase,held:heldCount,hands:hands.map(h=>({p:h.present,pinch:h.pinch,fist:h.fist,mode:h.mode}))});
+})();
+</script>
+</body>
+</html>
